@@ -1,4 +1,5 @@
 import logging
+import time
 from flask import Flask, render_template, jsonify, request, Response
 from utils.config import ConfigManager
 
@@ -16,6 +17,25 @@ class WebServer:
         @self.app.route('/')
         def index():
             return render_template('index.html')
+
+        @self.app.route('/api/config', methods=['GET'])
+        def get_config():
+            return jsonify(self.config._config)
+
+        @self.app.route('/api/config/update', methods=['POST'])
+        def update_config():
+            data = request.json
+            if not data:
+                return jsonify({"status": "error", "message": "No data provided"}), 400
+            
+            for key, value in data.items():
+                self.config.set(key, value)
+            
+            if self.config.save_config():
+                logger.info(f"Config updated via Web: {data}")
+                return jsonify({"status": "ok"})
+            else:
+                return jsonify({"status": "error", "message": "Failed to save config"}), 500
 
         @self.app.route('/api/command/<cmd>', methods=['POST'])
         def handle_command(cmd):

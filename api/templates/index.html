@@ -4,70 +4,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Freenove Robot Dog Control</title>
+    <title>Robot Control Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
     <header>
-        <h1>Freenove Robot Dog</h1>
-        <div id="status-badge" class="badge">Online</div>
+        <h1>ROBOT CONTROL <span>V2.1</span></h1>
+        <div id="status-badge" class="badge">System Online</div>
     </header>
 
-    <div class="video-feed">
-        <img src="/api/camera_stream" alt="Live Stream" width="100%">
+    <nav class="tabs-nav">
+        <button class="tab-btn active" onclick="showTab('tab-control')">Live Control</button>
+        <button class="tab-btn" onclick="showTab('tab-settings')">System Settings</button>
+    </nav>
+
+    <!-- TAB: CONTROL -->
+    <div id="tab-control" class="tab-content active">
+        <div class="video-container">
+            <img src="/api/camera_stream" alt="Live View">
+        </div>
+
+        <div class="dashboard-grid">
+            <section class="card">
+                <h2>🕹️ Motion Control</h2>
+                <div class="joystick">
+                    <button class="btn-ctrl" style="grid-area: up" onmousedown="sendCommand('forward')"
+                        onmouseup="stopCommand()">▲</button>
+                    <button class="btn-ctrl" style="grid-area: left" onmousedown="sendCommand('left')"
+                        onmouseup="stopCommand()">◀</button>
+                    <button class="btn-ctrl" style="grid-area: stop" onclick="sendCommand('stop')">■</button>
+                    <button class="btn-ctrl" style="grid-area: right" onmousedown="sendCommand('right')"
+                        onmouseup="stopCommand()">▶</button>
+                    <button class="btn-ctrl" style="grid-area: down" onmousedown="sendCommand('backward')"
+                        onmouseup="stopCommand()">▼</button>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>📊 Status & Mode</h2>
+                <div class="setting-item">
+                    <label>Movement Gait</label>
+                    <select id="gait-select" onchange="changeGait(this.value)">
+                        <option value="trot">Trot (Fast)</option>
+                        <option value="walk">Walk (Stable)</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label>Intelligence Mode</label>
+                    <select id="mode-select" onchange="changeMode(this.value)">
+                        <option value="home">Normal / Home</option>
+                        <option value="alarm">Security / Alarm</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label>Battery Level</label>
+                    <div class="setting-row">
+                        <span id="battery-val" style="font-weight: 700; color: #10b981;">-- V</span>
+                    </div>
+                </div>
+            </section>
+        </div>
     </div>
 
-    <main class="dashboard">
-        <section class="control-panel">
-            <h2>Bewegungssteuerung</h2>
-            <div class="joystick-container">
-                <button class="btn-ctrl" onmousedown="sendCommand('forward')" onmouseup="stopCommand()">▲</button>
-                <div class="row">
-                    <button class="btn-ctrl" onmousedown="sendCommand('left')" onmouseup="stopCommand()">◀</button>
-                    <button class="btn-ctrl" onmousedown="sendCommand('stop')" onmouseup="stopCommand()">■</button>
-                    <button class="btn-ctrl" onmousedown="sendCommand('right')" onmouseup="stopCommand()">▶</button>
+    <!-- TAB: SETTINGS -->
+    <div id="tab-settings" class="tab-content">
+        <div class="dashboard-grid">
+            <!-- Servo Calibration -->
+            <section class="card">
+                <h2>⚙️ Servo Calibration</h2>
+                <div id="servo-list">
+                    <!-- Dynamic servo list will be inserted here -->
                 </div>
-                <button class="btn-ctrl" onmousedown="sendCommand('backward')" onmouseup="stopCommand()">▼</button>
-            </div>
-        </section>
+            </section>
 
-        <section class="stats-panel">
-            <h2>Status & Sensoren</h2>
-            <div class="stat-item">
-                <label>Batterie:</label>
-                <span id="battery-val">-- V</span>
-            </div>
-            <div class="stat-item">
-                <label>Gait:</label>
-                <select id="gait-select" onchange="changeGait(this.value)">
-                    <option value="trot">Trot</option>
-                    <option value="walk">Walk</option>
-                </select>
-            </div>
-            <div class="stat-item">
-                <label>System Mode:</label>
-                <select id="mode-select" onchange="changeMode(this.value)">
-                    <option value="home">Home</option>
-                    <option value="alarm">Alarm</option>
-                </select>
-            </div>
-        </section>
-    </main>
+            <!-- Vision & System -->
+            <section class="card">
+                <h2>👁️ Vision & Performance</h2>
+                <div class="setting-item">
+                    <label>Camera Stabilization</label>
+                    <div class="setting-row">
+                        <span>Active</span>
+                        <input type="checkbox" id="cfg-system-camera_stabilization"
+                            onchange="updateQuickConfig('system.camera_stabilization', this.checked)">
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <label>Vision Skip Frames (CPU Save)</label>
+                    <input type="range" min="1" max="10" value="2" id="cfg-system-vision_processing_skip"
+                        oninput="updateQuickConfig('system.vision_processing_skip', parseInt(this.value))">
+                </div>
+
+                <h2 style="margin-top:2rem">🌐 MQTT Connectivity</h2>
+                <div class="setting-item">
+                    <label>Broker Address</label>
+                    <input type="text" id="cfg-mqtt-broker" placeholder="e.g. 192.168.1.10">
+                </div>
+                <button class="btn-save" onclick="saveAllSettings()">Save Configuration</button>
+            </section>
+        </div>
+    </div>
 
     <script>
-        function sendCommand(cmd) {
-            fetch(`/api/command/${cmd}`, { method: 'POST' });
+        let currentConfig = {};
+
+        function showTab(id) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.currentTarget.classList.add('active');
+            if (id === 'tab-settings') loadConfig();
         }
-        function stopCommand() {
-            fetch('/api/command/stop', { method: 'POST' });
+
+        async function loadConfig() {
+            const res = await fetch('/api/config');
+            currentConfig = await res.json();
+
+            // Populate System UI Elements
+            document.getElementById('cfg-system-camera_stabilization').checked = currentConfig.system.camera_stabilization;
+            document.getElementById('cfg-system-vision_processing_skip').value = currentConfig.system.vision_processing_skip;
+            document.getElementById('cfg-mqtt-broker').value = currentConfig.mqtt.broker;
+
+            // Simple Servo UI Generator (Example for Leg FL)
+            const servoHtml = `
+                <div class="setting-item">
+                    <label>Front Left Coxa - Offset</label>
+                    <input type="range" min="45" max="135" value="${currentConfig.servos.leg_fl.coxa.middle}" 
+                           oninput="updateQuickConfig('servos.leg_fl.coxa.middle', parseInt(this.value))">
+                </div>
+            `;
+            document.getElementById('servo-list').innerHTML = servoHtml;
         }
-        function changeGait(gait) {
-            fetch(`/api/gait/${gait}`, { method: 'POST' });
+
+        async function updateQuickConfig(key, value) {
+            const data = {};
+            data[key] = value;
+            await fetch('/api/config/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
         }
-        function changeMode(mode) {
-            fetch(`/api/mode/${mode}`, { method: 'POST' });
+
+        async function saveAllSettings() {
+            const data = {
+                "mqtt.broker": document.getElementById('cfg-mqtt-broker').value
+            };
+            await fetch('/api/config/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            alert("Settings saved successfully!");
         }
+
+        function sendCommand(cmd) { fetch(`/api/command/${cmd}`, { method: 'POST' }); }
+        function stopCommand() { fetch('/api/command/stop', { method: 'POST' }); }
+        function changeGait(gait) { fetch(`/api/gait/${gait}`, { method: 'POST' }); }
+        function changeMode(mode) { fetch(`/api/mode/${mode}`, { method: 'POST' }); }
     </script>
 </body>
 

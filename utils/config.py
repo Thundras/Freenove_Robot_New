@@ -24,3 +24,23 @@ class ConfigManager:
             return val
         except (KeyError, TypeError):
             return default
+
+    def set(self, key: str, value: Any):
+        """Update a config value in memory (supports dot notation)"""
+        keys = key.split(".")
+        d = self._config
+        for k in keys[:-1]:
+            if k not in d or not isinstance(d[k], dict):
+                d[k] = {}
+            d = d[k]
+        d[keys[-1]] = value
+
+    def save_config(self):
+        """Persist current configuration to disk"""
+        try:
+            with open(self.config_path, "w") as f:
+                yaml.dump(self._config, f, default_flow_style=False, sort_keys=False)
+            return True
+        except Exception as e:
+            print(f"Error saving config: {e}")
+            return False

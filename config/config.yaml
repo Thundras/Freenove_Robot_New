@@ -49,3 +49,14 @@ system:
   stabilization_crop: 0.15      # Crop factor to hide black edges (0.1 = 10%)
   vision_processing_skip: 2     # Only run AI models every N frames (1 = every frame)
   vision_fps_limit: 20          # Limit camera capture FPS to save CPU
+  web_host: "0.0.0.0"           # Interface to bind the web server to
+  web_port: 5000                # Port for the web server and camera stream
+
+# MQTT Settings (Home Assistant Integration)
+mqtt:
+  broker: "localhost"
+  port: 1883
+  username: ""
+  password: ""
+  base_topic: "freenove_dog"
+  node_id: "robot_dog"
