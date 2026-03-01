@@ -1,0 +1,15 @@
+# Core Dependencies
+numpy==1.24.3
+opencv-python-headless==4.8.0.74
+mediapipe==0.10.3
+tflite-runtime==2.13.0
+paho-mqtt==1.6.1
+flask==2.3.2
+flask-cors==4.0.0
+pyyaml==6.0.1
+
+# Hardware Drivers
+adafruit-circuitpython-pca9685==3.4.15
+adafruit-circuitpython-neopixel==6.3.11
+gpiozero==2.0
+smbus2==0.4.2

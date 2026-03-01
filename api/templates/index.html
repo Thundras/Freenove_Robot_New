@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freenove Robot Dog Control</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <header>
+        <h1>Freenove Robot Dog</h1>
+        <div id="status-badge" class="badge">Online</div>
+    </header>
+
+    <div class="video-feed">
+        <img src="/api/camera_stream" alt="Live Stream" width="100%">
+    </div>
+
+    <main class="dashboard">
+        <section class="control-panel">
+            <h2>Bewegungssteuerung</h2>
+            <div class="joystick-container">
+                <button class="btn-ctrl" onmousedown="sendCommand('forward')" onmouseup="stopCommand()">▲</button>
+                <div class="row">
+                    <button class="btn-ctrl" onmousedown="sendCommand('left')" onmouseup="stopCommand()">◀</button>
+                    <button class="btn-ctrl" onmousedown="sendCommand('stop')" onmouseup="stopCommand()">■</button>
+                    <button class="btn-ctrl" onmousedown="sendCommand('right')" onmouseup="stopCommand()">▶</button>
+                </div>
+                <button class="btn-ctrl" onmousedown="sendCommand('backward')" onmouseup="stopCommand()">▼</button>
+            </div>
+        </section>
+
+        <section class="stats-panel">
+            <h2>Status & Sensoren</h2>
+            <div class="stat-item">
+                <label>Batterie:</label>
+                <span id="battery-val">-- V</span>
+            </div>
+            <div class="stat-item">
+                <label>Gait:</label>
+                <select id="gait-select" onchange="changeGait(this.value)">
+                    <option value="trot">Trot</option>
+                    <option value="walk">Walk</option>
+                </select>
+            </div>
+            <div class="stat-item">
+                <label>System Mode:</label>
+                <select id="mode-select" onchange="changeMode(this.value)">
+                    <option value="home">Home</option>
+                    <option value="alarm">Alarm</option>
+                </select>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        function sendCommand(cmd) {
+            fetch(`/api/command/${cmd}`, { method: 'POST' });
+        }
+        function stopCommand() {
+            fetch('/api/command/stop', { method: 'POST' });
+        }
+        function changeGait(gait) {
+            fetch(`/api/gait/${gait}`, { method: 'POST' });
+        }
+        function changeMode(mode) {
+            fetch(`/api/mode/${mode}`, { method: 'POST' });
+        }
+    </script>
+</body>
+
+</html>

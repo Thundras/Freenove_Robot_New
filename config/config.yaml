@@ -1,0 +1,51 @@
+# Robot Configuration
+
+# Hardware Settings
+hardware:
+  pca9685_address: 0x40
+  mpu6050_address: 0x68
+  ads7830_address: 0x48
+  i2c_bus: 1
+  led_pin: 18
+  led_count: 8
+  buzzer_pin: 17
+  ultrasonic_trigger: 27
+  ultrasonic_echo: 22
+
+# Servo Calibration (Middle points and limits)
+servos:
+  # Leg 1 (Front Left)
+  leg_fl:
+    coxa:  { channel: 0, middle: 90, min: 20, max: 160, inverted: false }
+    femur: { channel: 1, middle: 90, min: 20, max: 160, inverted: false }
+    tibia: { channel: 2, middle: 90, min: 20, max: 160, inverted: false }
+  # Leg 2 (Front Right)
+  leg_fr:
+    coxa:  { channel: 3, middle: 90, min: 20, max: 160, inverted: true }
+    femur: { channel: 4, middle: 90, min: 20, max: 160, inverted: true }
+    tibia: { channel: 5, middle: 90, min: 20, max: 160, inverted: true }
+  # Leg 3 (Rear Left)
+  leg_rl:
+    coxa:  { channel: 6, middle: 90, min: 20, max: 160, inverted: false }
+    femur: { channel: 7, middle: 90, min: 20, max: 160, inverted: false }
+    tibia: { channel: 8, middle: 90, min: 20, max: 160, inverted: false }
+  # Leg 4 (Rear Right)
+  leg_rr:
+    coxa:  { channel: 9, middle: 90, min: 20, max: 160, inverted: true }
+    femur: { channel: 10, middle: 90, min: 20, max: 160, inverted: true }
+    tibia: { channel: 11, middle: 90, min: 20, max: 160, inverted: true }
+  
+  # Camera Servos
+  camera:
+    tilt: { channel: 14, middle: 90, min: 45, max: 135, inverted: false }
+
+# System Settings
+system:
+  control_loop_hz: 100
+  log_level: "INFO"
+  simulation_mode: true # Default to true for safety during development
+  camera_stabilization: true # Enable IMU-based camera tilt compensation
+  software_stabilization: true # Digital Image Stabilization (Roll/Pitch/Yaw)
+  stabilization_crop: 0.15      # Crop factor to hide black edges (0.1 = 10%)
+  vision_processing_skip: 2     # Only run AI models every N frames (1 = every frame)
+  vision_fps_limit: 20          # Limit camera capture FPS to save CPU
