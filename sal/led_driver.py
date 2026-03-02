@@ -29,6 +29,7 @@ class LedDriver:
 
         try:
             self.pixels = neopixel.NeoPixel(self.pin, self.num_pixels, brightness=0.5, auto_write=False)
+            self.current_state = {"pattern": "off", "color": [0, 0, 0], "pixels": [[0,0,0]] * self.num_pixels}
             logger.info(f"NeoPixel initialized on Pin {self.pin} with {self.num_pixels} LEDs.")
         except Exception as e:
             logger.error(f"Failed to initialize NeoPixel: {e}")
@@ -37,12 +38,16 @@ class LedDriver:
     def set_color(self, index: int, r: int, g: int, b: int):
         if 0 <= index < self.num_pixels:
             self.pixels[index] = (r, g, b)
+            self.current_state = {"pattern": "manual", "color": [r, g, b]}
 
     def show(self):
+        # Sync pixel data to current_state for the dashboard
+        self.current_state["pixels"] = [list(p) for p in self.pixels]
         self.pixels.show()
 
     def clear(self):
         self.pixels.fill((0, 0, 0))
+        self.current_state = {"pattern": "off", "color": [0, 0, 0]}
         self.show()
 
     def animate(self, pattern: str, color: tuple, speed: float = 1.0):
@@ -51,6 +56,7 @@ class LedDriver:
         pattern: 'spin', 'breathe', 'scanner', 'blink'
         color: (r, g, b)
         """
+        self.current_state = {"pattern": pattern, "color": list(color)}
         t = time.time() * speed
         r, g, b = color
 

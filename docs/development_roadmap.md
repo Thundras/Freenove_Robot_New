@@ -36,8 +36,8 @@ mindmap
 *   **Ziel:** Hochpräzise und flüssige Steuerung der 12 Gelenke.
 *   **Fokus:** Mathematische Neu-Implementierung der Inversen Kinematik (IK) und flüssige Bewegungsabläufe. [In Bearbeitung: Detailplanung vorhanden]
 
-### 3. Intelligenz & Perzeption
 *   **Ziel:** Vom ferngesteuerten Spielzeug zum autonomen Agenten.
+*   **Status:** [Abgeschlossen] YuNet/SFace Integration, Trust-System, Multi-View Memory, Gestensteuerung.
 *   **Fokus:** Einbindung von Behavior Trees (Verhaltensbäumen) für komplexe Abläufe.
 
 ### 4. Integration & Connectivity (Home Assistant Focus)

@@ -7,14 +7,16 @@ Der Roboter ist ein vierbeiniger Roboterhund (Quadruped), der von einem Raspberr
 
 ## Inhaltsverzeichnis
 * [Hardware Spezifikationen](docs/hardware_specs.md) - Details zu Sensoren und Aktoren.
-* [Software Architektur](docs/software_architecture.md) - Steuerungslogik und Kommunikation.
+* [Software Architektur](docs/software_architecture.md) - Steuerungslogik, Vision-Pipeline & Social Memory.
 * [Brainstorming & Ideen](docs/brainstorming_ideas.md) - Sammlung von Features und Erweiterungen.
-* [Entwicklungs-Roadmap](docs/development_roadmap.md) - Strategische Planung der Neuentwicklung.
-    * [Detailplanung SAL](docs/software_architecture.md) - Punkt 1 der Neuentwicklung.
-    * [Detailplanung Bewegungs-Engine](docs/developer/plan_02_movement.md) - Punkt 2 der Neuentwicklung.
-    * [Detailplanung Intelligenz](docs/developer/plan_03_intelligence.md) - Punkt 3 der Neuentwicklung.
-    * [Detailplanung Connectivity / HA](docs/developer/plan_04_connectivity.md) - Punkt 4 der Neuentwicklung.
-    * [Detailplanung Infrastruktur](docs/developer/plan_05_infrastructure.md) - Punkt 5 der Neuentwicklung.
+* [Entwicklungs-Roadmap](docs/development_roadmap.md) - Strategische Planung & Fortschritt.
+
+## Key Features (Abgeschlossen)
+*   **Modulare SAL:** Hardware-Abstraktion für stabilen Betrieb und Simulation.
+*   **Perzeption & Vision:** Hochfrequente Objekterkennung (YuNet/SFace) in eigenem Prozess.
+*   **Soziales Gedächtnis:** Multi-View Gesichtserkennung mit persistentem Speicher und Foto-Capture.
+*   **Trust-System:** Dynamisches Vertrauens-Level basierend auf Kontaktzeit.
+*   **Web Dashboard:** Moderne Steuerung mit Live-Feed und Social-Memory Management.
 
 ## Wichtige Regeln
 * Keine Änderungen am Original-Code im Quellordner `Freenove_Robot_Dog_Kit_for_Raspberry_Pi` vornehmen.

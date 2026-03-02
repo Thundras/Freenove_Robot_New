@@ -83,17 +83,26 @@ class MockBuzzer:
 
 class MockLed:
     def __init__(self):
-        pass
+        self.num_pixels = 7
+        self.pixels = [[0,0,0]] * self.num_pixels
+        self.current_state = {"pattern": "off", "color": [0, 0, 0], "pixels": self.pixels}
     def set_color(self, index, r, g, b):
-        pass
+        if 0 <= index < self.num_pixels:
+            self.pixels[index] = [r, g, b]
+        self.current_state = {"pattern": "manual", "color": [r, g, b], "pixels": self.pixels}
     def fill(self, r, g, b):
-        pass
+        self.pixels = [[r, g, b]] * self.num_pixels
+        self.current_state = {"pattern": "manual", "color": [r, g, b], "pixels": self.pixels}
     def show(self):
         pass
     def animate(self, pattern, color, speed=1.0):
-        pass
+        # In a mock, we don't simulate the step-by-step animation of individual pixels
+        # but we can fill the pixels list with the color to show it's active
+        self.pixels = [list(color)] * self.num_pixels
+        self.current_state = {"pattern": pattern, "color": list(color), "pixels": self.pixels}
     def clear(self):
-        pass
+        self.pixels = [[0,0,0]] * self.num_pixels
+        self.current_state = {"pattern": "off", "color": [0, 0, 0], "pixels": self.pixels}
 
 class MockGait:
     def __init__(self):

@@ -13,7 +13,8 @@ Wir nutzen Behavior Trees anstelle komplexer "If-Else"-Ketten.
 ## 2. Sensor-Fusion & Wahrnehmung
 Die Intelligenz nutzt die aufbereiteten Daten aus dem SAL:
 *   **Abstrakte Zustände:** Der BT arbeitet nicht mit "Entfernung 10cm", sondern mit Zuständen wie `IsObstacleAhead`.
-*   **Vision-Input:** Einbindung von OpenCV zur Erkennung von (z.B.) QR-Codes (für die Ladestation) oder Gesichtern.
+*   **Vision-Input:** Einbindung von OpenCV (YuNet/SFace) zur Erkennung von Gesichtern und Gesten.
+*   **Soziales Gedächtnis:** Implementierung einer persistenten Datenbank für bekannte Personen inkl. "Multi-View" Support (Stabilität bei Kopfdrehung).
 
 ## 3. Kartierung & Navigation (SLAM Light)
 *   **Occupancy Grid Map:** 2D-Karte aus Schritten und Ultraschall.
@@ -30,10 +31,11 @@ Da die Hardware keine Ladekontakte hat, wäre ein "echtes" Docking ein Hardware-
 *   **Validierung:** Prüfung des Ladestroms (via ADS7830), um ein erfolgreiches Docking zu bestätigen.
 
 ## 5. System-Design Entscheidungen (Fixiert)
-*   **Vision-Prozess:** Das Vision-System (OpenCV, Landmark-Erkennung) läuft in einem **unabhängigen Prozess** (via `multiprocessing`), um die Motorik-Frequenz (100Hz) niemals zu beeinträchtigen.
+*   **Vision-Prozess:** Das Vision-System (OpenCV, Landmark-Erkennung) läuft in einem **unabhängigen Prozess** (via `multiprocessing`), um die Motorik-Frequenz (100Hz) niemals zu beeinträchtigen. [Erledigt: Face Analysis & Overlay integriert]
 *   **Verhaltens-Steuerung:** Entscheidung für eine **Custom Lightweight Behavior Tree Engine**.
-    *   *Begründung:* Maximale Kontrolle, keine externen Abhängigkeiten, passgenau für die 5-10 Kern-Verhaltensweisen des Roboters.
+    *   *Begründung:* Maximale Kontrolle, keine externen Abhängigkeiten, passgenau für die 5-10 Kern-Verhaltensweisen des Roboters. [Erledigt: ReactToFace & PlayWithBall integriert]
 *   **Mapping-Strategie:** Fokus auf **Visual Landmarks** (QR-Codes/Aruco-Tags) für eine robuste und CPU-schonende Re-Lokalisierung in der Wohnung.
+*   **Memory Lifecycle:** Automatische Bereinigung flüchtiger Begegnungen ("Stranger" Löschung nach 2h), um die Datenbank sauber zu halten.
 
 ---
 *Status: Detailplanung für Intelligenz (Punkt 3) vollständig abgeschlossen. Bereit für die Umsetzung.*

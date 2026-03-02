@@ -6,13 +6,18 @@ class LegOscillator:
     def __init__(self, phase_offset: float = 0.0):
         self.phase = phase_offset
         self.phase_offset = phase_offset
-        self.idle_offset = 0.0
+        self.idle_offset_x = 0.0
+        self.idle_offset_y = 0.0
+        self.idle_offset_z = 0.0
         
-    def update_idle(self, t: float):
-        """Subtle breathing motion: sine wave offset on Y"""
-        self.idle_offset = math.sin(t * 2.0) * 2.0 # 2mm amplitude
-        self.amplitude_x = 0.0
-        self.amplitude_y = 0.0
+    def update_idle(self, t: float, leg_index: int = 0):
+        """Organic breathing and swaying motion"""
+        # Vertical breath (Y) - 3mm amplitude
+        self.idle_offset_y = math.sin(t * 1.5 + leg_index * 0.2) * 3.0
+        # Horizontal sway (X) - 2mm amplitude, different frequency
+        self.idle_offset_x = math.cos(t * 0.8 + leg_index * 0.5) * 2.0
+        # Subtle weight shift (Z)
+        self.idle_offset_z = math.sin(t * 0.5 + leg_index) * 1.5
         
     def reset(self, phase_offset: float):
         self.phase = phase_offset
@@ -24,14 +29,10 @@ class LegOscillator:
         self.phase = (self.phase + speed * dt) % 1.0
 
     def get_coordinates(self, step_length: float, step_height: float, base_y: float) -> Tuple[float, float, float]:
-        """
-        Calculate local (x, y, z) for the leg tip based on phase.
-        Phase 0.0 -> 0.5: Swing (lift and move forward)
-        Phase 0.5 -> 1.0: Stance (push backward on ground)
-        """
-        x = 0.0
-        y = base_y + self.idle_offset
-        z = 0.0
+        """Calculate local (x, y, z) for the leg tip based on phase."""
+        x = self.idle_offset_x
+        y = base_y + self.idle_offset_y
+        z = self.idle_offset_z
         
         # Normalized phase within the semi-cycle
         if self.phase < 0.5:
@@ -70,9 +71,12 @@ class GaitSequencer:
             "rl": LegOscillator(0.5),
             "rr": LegOscillator(0.0)
         }
+        self.current_gait = "trot"
+        self.current_pose = "normal"
         self.set_gait("trot")
 
     def set_gait(self, gait_type: str):
+        self.current_gait = gait_type.lower()
         if gait_type.lower() == "trot":
             # Diagonal pairs
             self.oscillators["fl"].reset(0.0)
@@ -88,6 +92,7 @@ class GaitSequencer:
 
     def set_pose(self, pose_name: str):
         """Sets a specific body posture"""
+        self.current_pose = pose_name.lower()
         p = pose_name.lower()
         if p == "normal":
             self.pose_offset = 0.0
@@ -121,12 +126,14 @@ class GaitSequencer:
             
         # 2. Update Oscillators
         t = time.time()
-        for osc in self.oscillators.values():
+        for i, (name, osc) in enumerate(self.oscillators.items()):
             osc.update(dt, self.current_speed)
             if self.current_speed < 0.01:
-                osc.update_idle(t)
+                osc.update_idle(t, i)
             else:
-                osc.idle_offset = 0.0
+                osc.idle_offset_x = 0.0
+                osc.idle_offset_y = 0.0
+                osc.idle_offset_z = 0.0
 
     def get_phases(self) -> Dict[str, float]:
         return {name: osc.phase for name, osc in self.oscillators.items()}

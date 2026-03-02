@@ -1,19 +1,217 @@
 <!DOCTYPE html>
 <html lang='de'>
+
 <head>
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>Robot Control Center</title>
     <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap' rel='stylesheet'>
     <link rel='stylesheet' href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .led-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 8px 15px;
+            border-radius: 30px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .led-ring {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--glass-border);
+            transition: all 0.5s;
+        }
+
+        .led-dot {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #333;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+            transition: all 0.2s;
+            transform: translate(-50%, -50%);
+        }
+
+        .led-dot.active {
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        /* Arrangement: 0=Center, 1-6=Circle */
+        #led-0 {
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+        }
+
+        #led-1 {
+            top: 15%;
+            left: 50%;
+        }
+
+        #led-2 {
+            top: 32.5%;
+            left: 80.3%;
+        }
+
+        #led-3 {
+            top: 67.5%;
+            left: 80.3%;
+        }
+
+        #led-4 {
+            top: 85%;
+            left: 50%;
+        }
+
+        #led-5 {
+            top: 67.5%;
+            left: 19.7%;
+        }
+
+        #led-6 {
+            top: 32.5%;
+            left: 19.7%;
+        }
+
+        @keyframes led-spin {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.2);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        @keyframes led-breathe {
+
+            0%,
+            100% {
+                opacity: 1;
+                filter: brightness(1.2);
+            }
+
+            50% {
+                opacity: 0.6;
+                filter: brightness(0.5);
+            }
+        }
+
+        .led-spin {
+            animation: led-rotate 1.5s linear infinite;
+        }
+
+        @keyframes led-rotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .led-blink .led-dot {
+            animation: led-blink-anim 0.5s step-start infinite;
+        }
+
+        @keyframes led-blink-anim {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        .led-breathe .led-dot {
+            animation: led-breathe-anim 2s ease-in-out infinite;
+        }
+
+        @keyframes led-breathe-anim {
+
+            0%,
+            100% {
+                filter: brightness(1.2) saturate(1.2);
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            50% {
+                filter: brightness(0.6) saturate(0.8);
+                transform: translate(-50%, -50%) scale(0.9);
+            }
+        }
+
+        .face-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--accent-blue);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+            background: #222;
+        }
+
+        .face-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .face-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.05);
+        }
+    </style>
 </head>
+
 <body>
     <header>
-        <h1>ROBOT CONTROL <span>V2.1</span></h1>
-        <div id='status-badge' class='badge'>System Online</div>
+        <h1>ROBOT CONTROL <span>{{ instance_id }}</span></h1>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div class="led-container">
+                <span
+                    style="font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">NeoPixel
+                    Ring</span>
+                <div class="led-ring">
+                    <div id="led-0" class="led-dot"></div>
+                    <div id="led-1" class="led-dot"></div>
+                    <div id="led-2" class="led-dot"></div>
+                    <div id="led-3" class="led-dot"></div>
+                    <div id="led-4" class="led-dot"></div>
+                    <div id="led-5" class="led-dot"></div>
+                    <div id="led-6" class="led-dot"></div>
+                </div>
+            </div>
+            <div id='status-badge' class='badge'>System Online</div>
+        </div>
     </header>
     <nav class='tabs-nav'>
         <button class='tab-btn active' onclick="showTab('tab-control')">Live Control</button>
+        <button class='tab-btn' onclick="showTab('tab-social')">Social Memory</button>
         <button class='tab-btn' onclick="showTab('tab-settings')">System Settings</button>
     </nav>
     <div id='tab-control' class='tab-content active'>
@@ -24,11 +222,15 @@
             <section class='card'>
                 <h2>🕹️ Motion Control</h2>
                 <div class='joystick'>
-                    <button class='btn-ctrl' style='grid-area: up' onmousedown="sendCommand('forward')" onmouseup="stopCommand()">▲</button>
-                    <button class='btn-ctrl' style='grid-area: left' onmousedown="sendCommand('left')" onmouseup="stopCommand()">◀</button>
+                    <button class='btn-ctrl' style='grid-area: up' onmousedown="sendCommand('forward')"
+                        onmouseup="stopCommand()">▲</button>
+                    <button class='btn-ctrl' style='grid-area: left' onmousedown="sendCommand('left')"
+                        onmouseup="stopCommand()">◀</button>
                     <button class='btn-ctrl' style='grid-area: stop' onclick="sendCommand('stop')">■</button>
-                    <button class='btn-ctrl' style='grid-area: right' onmousedown="sendCommand('right')" onmouseup="stopCommand()">▶</button>
-                    <button class='btn-ctrl' style='grid-area: down' onmousedown="sendCommand('backward')" onmouseup="stopCommand()">▼</button>
+                    <button class='btn-ctrl' style='grid-area: right' onmousedown="sendCommand('right')"
+                        onmouseup="stopCommand()">▶</button>
+                    <button class='btn-ctrl' style='grid-area: down' onmousedown="sendCommand('backward')"
+                        onmouseup="stopCommand()">▼</button>
                 </div>
             </section>
             <section class='card'>
@@ -67,6 +269,20 @@
             </section>
         </div>
     </div>
+    <div id='tab-social' class='tab-content'>
+        <div class='dashboard-grid'>
+            <section class='card' style="grid-column: span 2;">
+                <h2>🧠 Soziales Gedächtnis</h2>
+                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1.5rem;">
+                    Hier siehst du alle Personen, die der Roboter bereits gesehen hat. Vertrauen baut sich über Zeit auf
+                    (1h Kontakt = 100% Vertrauen).
+                </p>
+                <div id="faces-list-full" class="faces-grid">
+                    <i style="color: var(--text-dim)">Initialisiere Gedächtnis...</i>
+                </div>
+            </section>
+        </div>
+    </div>
     <div id='tab-settings' class='tab-content'>
         <div class='dashboard-grid'>
             <section class='card'>
@@ -79,12 +295,22 @@
                     <label>Kamera-Stabilisierung</label>
                     <div class='setting-row'>
                         <span>Aktiv</span>
-                        <input type="checkbox" id="cfg-system-camera_stabilization" onchange="updateQuickConfig('system.camera_stabilization', this.checked)">
+                        <input type="checkbox" id="cfg-system-camera_stabilization"
+                            onchange="updateQuickConfig('system.camera_stabilization', this.checked)">
                     </div>
                 </div>
                 <div class='setting-item'>
                     <label>Vision Skip Frames (CPU Save)</label>
-                    <input type="range" min="1" max="10" value="2" id="cfg-system-vision_processing_skip" oninput="updateQuickConfig('system.vision_processing_skip', parseInt(this.value))">
+                    <input type="range" min="1" max="10" value="2" id="cfg-system-vision_processing_skip"
+                        oninput="updateQuickConfig('system.vision_processing_skip', parseInt(this.value))">
+                </div>
+                <div class='setting-item'>
+                    <label>Vision Debug Overlay (Boxes)</label>
+                    <div class='setting-row'>
+                        <span>Anzeigen</span>
+                        <input type="checkbox" id="cfg-system-show_vision_debug"
+                            onchange="updateQuickConfig('system.show_vision_debug', this.checked)">
+                    </div>
                 </div>
                 <h2 style="margin-top:2rem">🌐 MQTT Konnektivität</h2>
                 <div class='setting-item'>
@@ -103,6 +329,7 @@
             document.getElementById(id).classList.add('active');
             event.currentTarget.classList.add('active');
             if (id === 'tab-settings') loadConfig();
+            if (id === 'tab-social') updateFaces();
         }
         async function loadConfig() {
             try {
@@ -111,6 +338,9 @@
                 if (currentConfig.system) {
                     document.getElementById('cfg-system-camera_stabilization').checked = currentConfig.system.camera_stabilization || false;
                     document.getElementById('cfg-system-vision_processing_skip').value = currentConfig.system.vision_processing_skip || 2;
+                    if (document.getElementById('cfg-system-show_vision_debug')) {
+                        document.getElementById('cfg-system-show_vision_debug').checked = currentConfig.system.show_vision_debug !== false;
+                    }
                 }
                 if (currentConfig.mqtt) {
                     document.getElementById('cfg-mqtt-broker').value = currentConfig.mqtt.broker || "";
@@ -139,7 +369,7 @@
                                     '<label style="font-size: 0.8rem;">' + joint.name + ' Offset (' + val + '°)</label>' +
                                     '<input type="range" min="45" max="135" value="' + val + '" ' +
                                     'oninput="this.previousElementSibling.innerText = \'' + joint.name + ' Offset (\' + this.value + \'°)\'; updateQuickConfig(\'' + path + '\', parseInt(this.value))">' +
-                                '</div>';
+                                    '</div>';
                             }
                         });
                         servoHtml += '</div>';
@@ -149,11 +379,11 @@
                     const camTilt = currentConfig.servos.camera.tilt.middle;
                     servoHtml += '<h3>Kamera</h3><div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">' +
                         '<div class="setting-item" style="margin-bottom: 0;">' +
-                            '<label style="font-size: 0.8rem;">Neigung / Tilt (' + camTilt + '°)</label>' +
-                            '<input type="range" min="45" max="135" value="' + camTilt + '" ' +
-                            'oninput="this.previousElementSibling.innerText = \'Neigung / Tilt (\' + this.value + \'°)\'; updateQuickConfig(\'servos.camera.tilt.middle\', parseInt(this.value))">' +
+                        '<label style="font-size: 0.8rem;">Neigung / Tilt (' + camTilt + '°)</label>' +
+                        '<input type="range" min="45" max="135" value="' + camTilt + '" ' +
+                        'oninput="this.previousElementSibling.innerText = \'Neigung / Tilt (\' + this.value + \'°)\'; updateQuickConfig(\'servos.camera.tilt.middle\', parseInt(this.value))">' +
                         '</div>' +
-                    '</div>';
+                        '</div>';
                 }
                 document.getElementById('servo-list').innerHTML = servoHtml;
             } catch (err) { console.error('Config load error:', err); }
@@ -173,6 +403,109 @@
         function changeGait(gait) { fetch('/api/gait/' + gait, { method: 'POST' }); }
         function changePose(pose) { fetch('/api/pose/' + pose, { method: 'POST' }); }
         function changeMode(mode) { fetch('/api/mode/' + mode, { method: 'POST' }); }
+
+        async function updateStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+
+                // 1. Sync Dropdowns (Mode, Pose, Gait)
+                if (data.mode) {
+                    const sel = document.getElementById('mode-select');
+                    if (document.activeElement !== sel) sel.value = data.mode;
+                }
+                if (data.pose) {
+                    const sel = document.getElementById('pose-select');
+                    if (document.activeElement !== sel) sel.value = data.pose;
+                }
+                if (data.gait) {
+                    const sel = document.getElementById('gait-select');
+                    if (document.activeElement !== sel) sel.value = data.gait;
+                }
+
+                // 2. Battery
+                if (data.battery) {
+                    const batt = document.getElementById('battery-val');
+                    batt.innerText = data.battery.voltage.toFixed(1) + ' V (' + data.battery.percentage + '%)';
+                    batt.style.color = data.battery.percentage < 20 ? '#ef4444' : '#10b981';
+                }
+
+                // 3. LEDs
+                if (data.led && data.led.pixels) {
+                    const ring = document.querySelector('.led-ring');
+
+                    // Pattern Classes
+                    ring.classList.remove('led-spin', 'led-blink', 'led-breathe', 'led-scanner');
+                    if (data.led.pattern && data.led.pattern !== 'off' && data.led.pattern !== 'manual') {
+                        ring.classList.add(`led-${data.led.pattern}`);
+                    }
+
+                    data.led.pixels.forEach((color, i) => {
+                        const dot = document.getElementById(`led-${i}`);
+                        if (!dot) return;
+
+                        const [r, g, b] = color;
+                        if (r === 0 && g === 0 && b === 0) {
+                            dot.style.backgroundColor = '#333';
+                            dot.style.boxShadow = 'none';
+                            dot.classList.remove('active');
+                        } else {
+                            const colorStr = `rgb(${r}, ${g}, ${b})`;
+                            dot.style.backgroundColor = colorStr;
+                            dot.style.boxShadow = `0 0 10px ${colorStr}`;
+                            dot.classList.add('active');
+                        }
+                    });
+                }
+            } catch (err) { console.error('Status sync error:', err); }
+        }
+
+        async function updateFaces() {
+            try {
+                const res = await fetch('/api/faces');
+                const faces = await res.json();
+                const list = document.getElementById('faces-list-full');
+
+                const entries = Object.entries(faces);
+                if (entries.length === 0) {
+                    list.innerHTML = '<i style="color: var(--text-dim)">Der Roboter hat noch niemanden getroffen.</i>';
+                    return;
+                }
+
+                let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem;">';
+                entries.sort((a, b) => b[1].exposure - a[1].exposure).forEach(([id, f]) => {
+                    const trust = Math.min(1.0, Math.pow(f.exposure / 3600.0, 3));
+                    const trustPct = Math.round(trust * 100);
+                    const color = trust > 0.8 ? '#10b981' : (trust > 0.3 ? '#06b6d4' : '#f59e0b');
+                    const status = trust > 0.8 ? 'Freund' : (trust > 0.3 ? 'Bekannter' : 'Fremder');
+                    const imgUrl = `/static/faces/${id}.jpg?t=${Date.now()}`;
+
+                    html += `
+                    <div class="card face-card">
+                        <div style="margin-bottom: 1rem; position: relative;">
+                            <img src="${imgUrl}" class="face-avatar" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=${id}'">
+                            <div style="position: absolute; top: 0; right: -10px; font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; background: ${color}; color: black; font-weight: 800; text-transform: uppercase;">
+                                ${status}
+                            </div>
+                        </div>
+                        <div style="font-weight: 700; color: var(--text-bright); margin-bottom: 0.25rem; font-size: 1.1rem;">${f.name || id}</div>
+                        <div style="font-size: 1.5rem; font-weight: 800; color: ${color}; margin-bottom: 0.5rem;">${trustPct}% <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-dim)">Vertrauen</span></div>
+                        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-bottom: 0.75rem;">
+                            <div style="width: ${trustPct}%; height: 100%; background: ${color}; box-shadow: 0 0 10px ${color}"></div>
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-dim);">
+                            Gesamt-Kontakt: ${Math.round(f.exposure / 60)} Min.
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+                list.innerHTML = html;
+            } catch (err) { console.error('Face sync error:', err); }
+        }
+
+        setInterval(updateStatus, 500);
+        updateFaces();
     </script>
 </body>
+
 </html>

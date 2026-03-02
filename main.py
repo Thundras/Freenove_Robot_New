@@ -1,6 +1,7 @@
 import logging
 import time
 import threading
+import socket
 from utils.config import ConfigManager
 from sal.factory import SalFactory
 from movement.gait import GaitSequencer
@@ -14,12 +15,32 @@ def setup_logging():
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
+    
+def is_port_in_use(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) == 0
 
 def main():
     setup_logging()
     logger = logging.getLogger("RobotMain")
     
     logger.info("Initializing Robot Dog 2.0...")
+    
+    # 0. Port Safety Check
+    if is_port_in_use(5000):
+        logger.critical("!!! PORT 5000 IS ALREADY IN USE !!!")
+        
+        # Visual Alarm on hardware
+        try:
+            led = SalFactory.get_led(config)
+            led.set_pattern("blink", [255, 0, 0]) # Flash Red
+            time.sleep(2)
+        except: pass
+        
+        logger.critical("Possible 'ghost' process detected. Please run:")
+        logger.critical("  Stop-Process -Name python -Force")
+        logger.critical("in PowerShell before starting.")
+        return # Exit early
     
     config = ConfigManager()
     
@@ -61,6 +82,9 @@ def main():
             start_time = time.perf_counter()
             
             # --- UPDATE CYCLE ---
+            if int(time.time() * 10) % 50 == 0: # Every 5 seconds roughly
+                print(f"DIAG: Main Loop Context ID: {id(intelligence.context)} Mode: {intelligence.context['system_mode']}")
+            
             # A. Sensors
             imu.update()
             battery.update()

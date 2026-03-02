@@ -59,7 +59,7 @@ class HAConnectivity:
                 if oid == "gait":
                     payload["options"] = ["trot", "walk"]
                 elif oid == "system_mode":
-                    payload["options"] = ["home", "alarm"]
+                    payload["options"] = ["autonomous", "follow", "sit", "down", "manual", "alarm"]
                 
                 payload["command_topic"] = self.mqtt_mgr.get_topic("cmd", oid)
             

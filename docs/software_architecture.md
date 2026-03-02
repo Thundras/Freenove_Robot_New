@@ -16,8 +16,10 @@ graph TD
     Main -->|Pushed Data| SharedIMU
     SharedIMU -->|Pull for DIS| Vision
     
-    Vision -->|Detection Events / Tilt Requests| Queue[(Result Queue)]
+    Vision -->|Detection Events / Face Vectors| Queue[(Result Queue)]
     Queue -->|Process Requests| Intel[Intelligence Controller]
+    Intel -->|Identified Name| IdentQueue[(Identity Queue)]
+    IdentQueue -->|Overlay Name| Vision
     Intel -->|Calculate Pose| Gait[Gait Sequencer]
     Gait -->|Target Coordinates| IK[IK Engine]
     IK -->|Angles| Main
@@ -33,12 +35,13 @@ Alle Hardware-Zugriffe erfolgen über die `SalFactory`. Dies ermöglicht einen *
 *   Die `IntelligenceController.update()` Methode verarbeitet diese und schreibt die Werte sicher in den I2C-Bus.
 *   Dies verhindert I2C-Bus-Contention und Race-Conditions.
 
-### C. Intelligenz (Behavior Trees)
-Anstelle einer komplexen State-Machine nutzen wir **Behavior Trees**. Dies erlaubt eine klare Priorisierung:
-1.  **Safety**: Hindernisvermeidung (Ultrasonic).
-2.  **Security**: Alarm-Modus (Personenerkennung).
-3.  **Interaction**: Verfolgen von Personen, Gestensteuerung.
-4.  **Social/Idle**: Interaktion mit anderen Hunden, Spieltrieb.
+### D. Social Memory & Perzeption
+Ein zentraler Bestandteil der Intelligenz ist das **Soziale Gedächtnis** (`SocialMemory`):
+*   **Multi-View Recognition:** Speicherung von bis zu 10 verschiedenen Gesichtswinkeln (embeddings) pro Person, um Erkennung bei Kopfdrehung zu stabilisieren.
+*   **Trust-System:** Vertrauen baut sich über die Zeit auf (kubische Kurve).
+*   **Persistent Storage:** Gesichter und zugehörige Fotos werden in `face_db.json` und einem `faces/` Verzeichnis dauerhaft gespeichert.
+*   **Identity Feedback:** Sobald die KI eine Person identifiziert hat, wird der Name via `Identity Queue` zurück an den Vision-Prozess gesendet, um ihn im Video-Overlay anzuzeigen.
+*   **Garbage Collection:** Automatische Löschung flüchtiger Detektionen (Stranger, <15s Kontakt) nach 2 Stunden Inaktivität.
 
 ## 3. Kommunikation & Connectivity
 *   **MQTT (Home Assistant):** Bietet Auto-Discovery für Sensoren und Schalter.
