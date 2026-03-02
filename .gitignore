@@ -24,3 +24,8 @@ env/
 # Sensitive info / user configs
 # If config.yaml has real passwords, we should ignore it, but we might want a template
 # config/config.yaml
+
+# Robot Social Memory (Privacy)
+brain/face_db.json
+api/static/faces/*.jpg
+!api/static/faces/.gitkeep
