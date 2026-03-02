@@ -7,7 +7,7 @@ from .mqtt_manager import MQTTManager
 from utils.config import ConfigManager
 
 logger = logging.getLogger(__name__)
-
+class HAConnectivity:
     def __init__(self, config: ConfigManager, movement=None, intelligence=None):
         self.config = config
         self.movement = movement

@@ -78,7 +78,7 @@ def main():
             
             # E. Telemetry to HA
             if int(time.time() * 10) % 50 == 0: # 0.5 Hz
-                ha.publish_state("battery", battery.voltage)
+                ha.publish_state("battery", battery.get_data().voltage)
                 ha.publish_state("system_mode", intelligence.context["system_mode"])
             
             # --- SLEEP ---

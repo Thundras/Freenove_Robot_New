@@ -41,6 +41,27 @@ class FollowPerson(Leaf):
             return True
         return False
 
+class ReactToPerson(Leaf):
+    def __init__(self, name, context):
+        super().__init__(name)
+        self.context = context
+
+    def run(self) -> bool:
+        """Simple reaction when a person is seen in autonomous mode"""
+        if self.context.get("system_mode") != "autonomous":
+            return False
+
+        detection = self.context.get("last_object_detection")
+        if detection and detection["label"] == "person":
+            dist = detection.get("dist", 1000)
+            if dist < 1200:
+                logger.info(f"Reacting to person at {dist}mm! Stopping to say hi.")
+                self.context["gait"].set_target_speed(0.0)
+                if "buzzer" in self.context["sensors"]:
+                    self.context["sensors"]["buzzer"].beep(0.1)
+                return True
+        return False
+
 class HandleGesture(Leaf):
     """
     Advanced Vision: Toggles interaction modes based on gestures.
