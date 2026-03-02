@@ -2,6 +2,8 @@ import os
 # Silencing TensorFlow/TFLite internal logs BEFORE imports
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TFLITE_LOG_SEVERITY'] = '3'
+os.environ['GLOG_minloglevel'] = '3'
 
 import logging
 import time

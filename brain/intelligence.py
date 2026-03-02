@@ -344,7 +344,7 @@ class IntelligenceController:
         # Mode Change Detection & Logging
         current_mode = self.context.get("system_mode")
         if not hasattr(self, "_last_mode_logged") or self._last_mode_logged != current_mode:
-            logger.info(f"!!! SYSTEM MODE CHANGE: {getattr(self, '_last_mode_logged', 'init')} -> {current_mode} !!!")
+            logger.info(f"System Mode: {current_mode}")
             self._last_mode_logged = current_mode
             
         # Periodic Status Heartbeat (every 5 seconds) - DEBUG level to keep console clean

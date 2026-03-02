@@ -8,8 +8,11 @@ logger = logging.getLogger(__name__)
 class WebServer:
     def __init__(self, config: ConfigManager, movement_engine=None, intelligence=None):
         self.app = Flask(__name__)
-        # Silence Flask access logs for /api/status flooding
-        logging.getLogger('werkzeug').setLevel(logging.WARNING)
+        # Silence Flask & Werkzeug access logs completely
+        import logging as py_logging
+        py_logging.getLogger('werkzeug').setLevel(py_logging.ERROR)
+        self.app.logger.disabled = True
+        
         self.config = config
         self.movement = movement_engine
         self.intelligence = intelligence
@@ -56,9 +59,7 @@ class WebServer:
 
         @self.app.route('/api/pose/<pose>', methods=['POST'])
         def handle_pose(pose):
-            # Critical log to verify receiving request
-            print(f"DEBUG: !!! API POSE REQUEST RECEIVED: {pose} !!!")
-            logger.info(f"!!! API POSE REQUEST: {pose} !!!")
+            logger.debug(f"API Pose request: {pose}")
             if self.movement:
                 self.movement.set_pose(pose)
                 self.movement.set_target_speed(0.0, 0.0)
@@ -71,10 +72,7 @@ class WebServer:
                 else:
                     mode_to_set = "manual"
                 
-                logger.info(f"API Mapping: Pose {pose} -> Mode {mode_to_set}")
                 self.intelligence.context["system_mode"] = mode_to_set
-                # Double check the assigned value
-                logger.info(f"Verified Context Mode: {self.intelligence.context['system_mode']}")
             return jsonify({"status": "ok", "pose": pose})
 
         @self.app.route('/api/mode/<mode>', methods=['POST'])

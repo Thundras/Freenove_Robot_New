@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class MockServoController(IServoController):
     def __init__(self):
         self.angles: Dict[int, float] = {}
-        logger.info("MockServoController initialized")
+        logger.debug("MockServoController initialized")
 
     def set_angle(self, channel: int, angle: float) -> None:
         self.angles[channel] = angle
@@ -75,7 +75,7 @@ class MockBuzzer:
     def __init__(self):
         pass
     def beep(self, duration=0.1):
-        logger.info(f"Mock Buzzer: BEEP ({duration}s)")
+        logger.debug(f"Mock Buzzer: BEEP ({duration}s)")
     def on(self):
         pass
     def off(self):

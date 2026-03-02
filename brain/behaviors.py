@@ -551,7 +551,7 @@ class Idle(Leaf):
     def run(self) -> bool:
         """Fallback: Stop movement if no other behavior is active"""
         if self.gait.current_speed > 0.01:
-            logger.info("Idle: Stopping persistent movement.")
+            logger.debug("Idle: Stopping persistent movement.")
             self.gait.set_target_speed(0.0, 0.0)
         return True
 
