@@ -8,10 +8,11 @@ logger = logging.getLogger(__name__)
 class WebServer:
     def __init__(self, config: ConfigManager, movement_engine=None, intelligence=None):
         self.app = Flask(__name__)
+        # Silence Flask access logs for /api/status flooding
+        logging.getLogger('werkzeug').setLevel(logging.WARNING)
         self.config = config
         self.movement = movement_engine
         self.intelligence = intelligence
-        print(f"DIAG: Web Server Context ID: {id(self.intelligence.context) if self.intelligence else 'N/A'}")
         self.setup_routes()
 
     def setup_routes(self):
@@ -106,9 +107,6 @@ class WebServer:
             
         @self.app.route('/api/status', methods=['GET'])
         def get_status():
-            # Throttle debug print to avoid flooding, but keep it consistent
-            if int(time.time()) % 10 == 0:
-                print(f"DEBUG: Status API called from {request.remote_addr}")
                 
             status = {
                 "mode": "autonomous",

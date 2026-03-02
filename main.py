@@ -1,3 +1,8 @@
+import os
+# Silencing TensorFlow/TFLite internal logs BEFORE imports
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
 import logging
 import time
 import threading
@@ -82,8 +87,6 @@ def main():
             start_time = time.perf_counter()
             
             # --- UPDATE CYCLE ---
-            if int(time.time() * 10) % 50 == 0: # Every 5 seconds roughly
-                print(f"DIAG: Main Loop Context ID: {id(intelligence.context)} Mode: {intelligence.context['system_mode']}")
             
             # A. Sensors
             imu.update()

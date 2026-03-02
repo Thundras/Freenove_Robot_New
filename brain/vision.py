@@ -393,7 +393,8 @@ class VisionProcess(multiprocessing.Process):
                                         "score": d["score"],
                                         "interest": interest_level,
                                         "center_x": center_x,
-                                        "center_y": center_y
+                                        "center_y": center_y,
+                                        "timestamp": time.time()
                                     }
                                     if face_vec:
                                         res["face_vec"] = face_vec

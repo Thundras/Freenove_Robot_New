@@ -383,7 +383,7 @@ class PlayWithBall(Leaf):
                 # We could also use this to tilt a bit left/right if we had a pan servo, 
                 # but for now we just STAY PUT.
                 if int(time.time() * 20) % 40 == 0:
-                    logger.info(f"Play: Watching ball curiously (Low interest: {interest:.2f})")
+                    logger.debug(f"Play: Watching ball curiously (Low interest: {interest:.2f})")
                 self.context["gait"].set_target_speed(0.0)
                 return True
 
@@ -397,7 +397,7 @@ class PlayWithBall(Leaf):
 
             if dist < 400:
                 if int(time.time() * 10) % 20 == 0:
-                    logger.info(f"Play: Ball is close ({dist}mm). Nudging!")
+                    logger.debug(f"Play: Ball is close ({dist}mm). Nudging!")
                 self.context["gait"].set_pose("playful")
                 self.context["gait"].set_target_speed(0.2, turn_rate)
             elif dist < 1000:

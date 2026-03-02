@@ -74,14 +74,14 @@ class LedDriver:
             self.pixels.fill((int(r * brightness), int(g * brightness), int(b * brightness)))
             
         elif pattern == "scanner":
-            # Knight Rider style back and forth
-            # Ring is 0-6. Middle is 0? Or 0-6 around.
-            # For a 7-ring (usually 1 center, 6 around), 0 is center? 
-            # Freenove ring: usually 0 is center, 1-6 are around.
-            pos = int((math.sin(t * 5.0) + 1) / 2 * 6) + 1
+            # Knight Rider style back and forth across the ring
+            # Since it's a circle, we just sweep back and forth 0-6
+            pos = int((math.sin(t * 5.0) + 1) / 2 * 6.99)
             self.pixels.fill((0, 0, 0))
             self.pixels[pos] = color
-            self.pixels[0] = (r//4, g//4, b//4) # Dim center
+            # Add secondary glow to neighbors
+            self.pixels[(pos - 1) % 7] = (r//6, g//6, b//6)
+            self.pixels[(pos + 1) % 7] = (r//6, g//6, b//6)
             
         elif pattern == "heartbeat":
             # Quick double pulse

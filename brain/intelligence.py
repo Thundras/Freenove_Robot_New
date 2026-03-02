@@ -118,10 +118,10 @@ class SocialMemory:
         }
         return new_id, 0.0
 
-    def update_exposure(self, face_id, dt):
+    def update_exposure(self, face_id, dt, now_ts=None):
         if face_id in self.faces:
             self.faces[face_id]["exposure"] += dt
-            self.faces[face_id]["last_seen"] = time.time()
+            self.faces[face_id]["last_seen"] = now_ts or time.time()
             # Cubic trust curve: trust = (hours / 1)^3 
             # or (seconds / 3600)^3
             exposure = self.faces[face_id]["exposure"]
@@ -283,8 +283,21 @@ class IntelligenceController:
                 # --- FACE RECOGNITION ---
                 if "face_vec" in data:
                     fid, dist = self.social_memory.match_face(data["face_vec"])
-                    trust = self.social_memory.update_exposure(fid, 0.5) # Assuming ~2FPS
-                    self.context["last_face"] = {"id": fid, "trust": trust, "timestamp": now}
+                    
+                    # Calculate actual dt based on vision timestamp
+                    ts = data.get("timestamp", now)
+                    last_seen = self.social_memory.faces[fid].get("last_seen", ts)
+                    actual_dt = ts - last_seen
+                    
+                    # Cap dt: If person was gone > 1s, just add a tiny 0.05s starting increment
+                    # Otherwise use real delta, capped to 0.5s max per frame pair
+                    if actual_dt > 1.0 or actual_dt < 0:
+                        actual_dt = 0.05
+                    else:
+                        actual_dt = min(actual_dt, 0.5)
+                        
+                    trust = self.social_memory.update_exposure(fid, actual_dt, now_ts=ts)
+                    self.context["last_face"] = {"id": fid, "trust": trust, "timestamp": ts}
                     
                     # Store/Update face image
                     # Update if new person (exposure < 10s) or if trust is still building
@@ -334,10 +347,10 @@ class IntelligenceController:
             logger.info(f"!!! SYSTEM MODE CHANGE: {getattr(self, '_last_mode_logged', 'init')} -> {current_mode} !!!")
             self._last_mode_logged = current_mode
             
-        # Periodic Status Heartbeat (every 5 seconds)
+        # Periodic Status Heartbeat (every 5 seconds) - DEBUG level to keep console clean
         if int(now) % 5 == 0:
             if not hasattr(self, "_last_heartbeat_tick") or self._last_heartbeat_tick != int(now):
-                logger.info(f"[HEARTBEAT] Mode: {current_mode} | Object: {'Yes' if self.context['last_object_detection'] else 'No'}")
+                logger.debug(f"[HEARTBEAT] Mode: {current_mode} | Object: {'Yes' if self.context['last_object_detection'] else 'No'}")
                 self._last_heartbeat_tick = int(now)
         
         # Update shared IMU data for vision stabilization (Roll, Pitch, Yaw)
