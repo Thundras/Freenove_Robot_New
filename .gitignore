@@ -29,3 +29,7 @@ env/
 brain/face_db.json
 api/static/faces/*.jpg
 !api/static/faces/.gitkeep
+
+# AI Models
+brain/models/*.task
+brain/models/*.tflite

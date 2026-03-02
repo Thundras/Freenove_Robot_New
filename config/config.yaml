@@ -101,6 +101,7 @@ system:
   stabilization_crop: 0.15
   vision_processing_skip: 2
   vision_fps_limit: 20
+  gesture_trust_threshold: 0.1
   web_host: 0.0.0.0
   web_port: 5000
 mqtt:

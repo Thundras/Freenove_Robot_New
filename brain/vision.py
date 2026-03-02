@@ -1,8 +1,24 @@
+import os
+import warnings
+import logging
+
+# 0. Deep silence for AI libraries (MUST be at the very top)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TFLITE_LOG_SEVERITY'] = '3'
+os.environ['GLOG_minloglevel'] = '3'
+
+# Suppress Python-level warnings
+warnings.filterwarnings("ignore")
+
+# Pre-emptive logger silencing
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
+logging.getLogger('keras').setLevel(logging.ERROR)
+logging.getLogger('absl').setLevel(logging.WARNING)
+
 import multiprocessing
 import time
-import logging
 import numpy as np
-import os
 
 try:
     import cv2
@@ -11,6 +27,8 @@ except ImportError:
 
 try:
     import mediapipe as mp
+    from mediapipe.tasks import python
+    from mediapipe.tasks.python import vision as mp_vision
 except ImportError:
     mp = None
 
@@ -19,9 +37,6 @@ try:
     import tflite_runtime.interpreter as tflite
 except ImportError:
     try:
-        import warnings
-        # Suppress TensorFlow Lite deprecation warning
-        warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow.lite")
         import tensorflow.lite as tflite
     except ImportError:
         tflite = None
@@ -141,7 +156,8 @@ class VisionProcess(multiprocessing.Process):
         self.identity_queue = identity_queue
         self.config = config
         self.running = multiprocessing.Event()
-        self.current_identity = None # Local cache of the recognized person name
+        self.running.set() # Set to True by default
+        self.current_identity = None 
         
         # Load Camera Tilt Config
         camera_cfg = self.config.get("servos.camera.tilt", {})
@@ -156,23 +172,55 @@ class VisionProcess(multiprocessing.Process):
         self.last_tilt_update = time.time()
 
     def stop(self):
+        logger.info("VisionProcess.stop() called")
         self.running.clear()
 
     def run(self):
-        self.running.set()
+        # Do NOT call self.running.set() here, it might override a stop request
+        
+        # --- SUBPROCESS LOGGING SETUP (Windows Compatibility) ---
+        import sys
+        import warnings
+        
+        # Suppress Python-level warnings in this process too
+        warnings.filterwarnings("ignore")
+        
+        root = logging.getLogger()
+        root.setLevel(logging.INFO)
+        if not root.handlers:
+            ch = logging.StreamHandler(sys.stdout)
+            ch.setLevel(logging.INFO)
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            ch.setFormatter(formatter)
+            root.addHandler(ch)
+            
+        # Silence library noise in the subprocess
+        logging.getLogger('absl').setLevel(logging.WARNING)
+        logging.getLogger('tensorflow').setLevel(logging.ERROR)
+        
         logger.info("Vision process started (Real AI Mode)")
         
-        # 1. Initialize AI Models
-        # MediaPipe for Gestures
-        hands = None
+        # MediaPipe Tasks for Gestures
+        hand_landmarker = None
         if mp is not None:
-            mp_hands = mp.solutions.hands
-            hands = mp_hands.Hands(
-                static_image_mode=False,
-                max_num_hands=1,
-                min_detection_confidence=0.7,
-                min_tracking_confidence=0.5
-            )
+            try:
+                model_path = os.path.join(os.path.dirname(__file__), "models", "hand_landmarker.task")
+                base_options = python.BaseOptions(model_asset_path=model_path)
+                options = mp_vision.HandLandmarkerOptions(
+                    base_options=base_options,
+                    running_mode=mp_vision.RunningMode.VIDEO,
+                    num_hands=1,
+                    min_hand_detection_confidence=0.45, # Lowered to speed up discovery
+                    min_hand_presence_confidence=0.6,
+                    min_tracking_confidence=0.6
+                )
+                hand_landmarker = mp_vision.HandLandmarker.create_from_options(options)
+                if hand_landmarker:
+                    logger.info("MediaPipe HandLandmarker loaded successfully (Tasks API).")
+                else:
+                    logger.error("MediaPipe HandLandmarker initialization returned None.")
+            except Exception as e:
+                logger.error(f"Failed to load MediaPipe HandLandmarker: {e}")
 
         # TFLite for Object Detection (Person/Pet)
         detector = None
@@ -180,7 +228,10 @@ class VisionProcess(multiprocessing.Process):
         label_path = "brain/models/labelmap.txt"
         try:
             detector = ObjectDetector(model_path, label_path)
-            logger.info("TFLite Object Detector loaded successfully.")
+            if detector and detector.interpreter:
+                logger.info("TFLite Object Detector loaded successfully.")
+            else:
+                logger.error("TFLite Object Detector failed to initialize (Interpreter missing).")
         except Exception as e:
             logger.error(f"Failed to load TFLite Detector: {e}")
 
@@ -209,9 +260,12 @@ class VisionProcess(multiprocessing.Process):
         face_analyzer = FaceAnalyzer(face_detector_path, face_recognizer_path)
 
         while self.running.is_set():
+            # Check for stop request multiple times in the loop if needed
+            if not self.running.is_set(): break
+            
             frame_count += 1
             if frame_count % 200 == 0:
-                logger.info(f"Vision capture loop active (Frame: {frame_count})")
+                logger.info(f"Vision loop tick: {frame_count}")
             frame = None
             if cap is not None and cap.isOpened():
                 ret, frame = cap.read()
@@ -276,49 +330,68 @@ class VisionProcess(multiprocessing.Process):
                         else:
                             viz_state["ball"] = None
 
-                    # --- AI STEP 1: Gesture Recognition (MediaPipe) ---
-                    if do_ai and hands is not None:
-                        # MediaPipe needs RGB
-                        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        results = hands.process(rgb_frame)
+                    # --- AI STEP 1: Gesture Recognition (MediaPipe Tasks API) ---
+                    if do_ai and hand_landmarker is not None:
+                        # MediaPipe Tasks expects mp.Image
+                        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                         
-                        if results.multi_hand_landmarks:
-                            for hand_landmarks in results.multi_hand_landmarks:
-                                # 1. Count fingers (Very simplified logic)
-                                # Index of finger tips: 4, 8, 12, 16, 20
-                                # We check if tip is above its lower joint
+                        # In VIDEO mode, we need a unique timestamp (ms)
+                        timestamp_ms = int(time.time() * 1000)
+                        results = hand_landmarker.detect_for_video(mp_image, timestamp_ms)
+                        
+                        if results.hand_landmarks:
+                            for i, hand_landmarks in enumerate(results.hand_landmarks):
+                                # Check handedness score for this specific hand
+
+                                # 1. Count fingers (Distance-Ratio logic)
                                 fingers = []
-                                # Thumb (landmark 4 vs 2 for horizontal/vertical) 
-                                # This depends on orientation, but let's stick to easy ones
+                                wrist = hand_landmarks[0]
                                 for tip_id in [8, 12, 16, 20]:
-                                    if hand_landmarks.landmark[tip_id].y < hand_landmarks.landmark[tip_id - 2].y:
+                                    tip = hand_landmarks[tip_id]
+                                    knuckle = hand_landmarks[tip_id - 2]
+                                    dist_tip = ((tip.x - wrist.x)**2 + (tip.y - wrist.y)**2)**0.5
+                                    dist_knuckle = ((knuckle.x - wrist.x)**2 + (knuckle.y - wrist.y)**2)**0.5
+                                    if dist_tip > dist_knuckle * 1.2:
                                         fingers.append(1)
                                 
                                 count = sum(fingers)
+                                
+                                # Conditional Strictness:
+                                # We only process if the hand detection is solid.
+                                # Finger gestures (1+) are harder to fake for the AI, so we allow lower scores.
+                                # Fist gestures (0) are easily faked by background noise, so we require 75%+.
+                                if results.handedness:
+                                    score = results.handedness[i][0].score
+                                    min_req = 0.75 if count == 0 else 0.5
+                                    if score < min_req: 
+                                        continue
+
                                 label = None 
-                                if count >= 4:
-                                    label = "COME" # Open hand (4-5 fingers)
+                                if count >= 3:
+                                    label = "COME" # Open hand
                                 elif count == 2:
                                     label = "SIT" # Peace sign
                                 elif count == 1:
-                                    label = "DOWN" # Pointing finger
+                                    label = "DOWN" # Pointing
                                 elif count == 0:
-                                    label = "AWAY" # Closed fist
+                                    label = "AWAY" # Fist
                                 
                                 if label:
+                                    # Log inside vision process for debugging
+                                    logger.info(f"Gesture recognized: {label} (Fingers: {fingers})")
                                     try:
                                         if self.result_queue.full():
                                             self.result_queue.get_nowait()
                                         self.result_queue.put_nowait({
                                             "type": "gesture",
                                             "label": label,
-                                            "confidence": 0.95
+                                            "confidence": 0.95,
+                                            "timestamp": time.time()
                                         })
                                     except Exception: pass
                                     
                                     # Cache for visualization
-                                    if label:
-                                        viz_state["gesture"] = (label, time.time())
+                                    viz_state["gesture"] = (label, time.time())
 
                     # --- AI STEP 2: Object Detection (TFLite) ---
                     if do_ai and detector is not None:
@@ -418,7 +491,8 @@ class VisionProcess(multiprocessing.Process):
                                 
                                 icon = "👤" if label == "person" else "🐾"
                                 interest_str = f" [Interest: {interest_level}]" if label == "dog" else ""
-                                logger.info(f"Target Acquired: {label.upper()} {icon}{interest_str} (Conf: {d['score']:.2f}, Dist: {dist_est}mm)")
+                                if frame_count % 50 == 0: # Even less frequent, and at DEBUG level
+                                    logger.debug(f"Target Status: {label.upper()} {icon}{interest_str} (Conf: {d['score']:.2f}, Dist: {dist_est}mm)")
                             
                         viz_state["objects"] = viz_objects_new
 
@@ -499,7 +573,10 @@ class VisionProcess(multiprocessing.Process):
                             if self.frame_queue.full():
                                 try: self.frame_queue.get_nowait()
                                 except: pass
-                            self.frame_queue.put(buffer.tobytes())
+                            # Use put_nowait to avoid blocking the shutdown if the queue fills up
+                            try:
+                                self.frame_queue.put_nowait(buffer.tobytes())
+                            except Exception: pass
                             if frame_count % 100 == 0:
                                 logger.debug("Vision stream frame pushed to queue.")
                         else:

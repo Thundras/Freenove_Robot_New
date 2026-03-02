@@ -1,11 +1,22 @@
 import os
-# Silencing TensorFlow/TFLite internal logs BEFORE imports
+import warnings
+import logging
+
+# 1. Silencing AI internal logs/warnings BEFORE any heavy imports
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['TFLITE_LOG_SEVERITY'] = '3'
 os.environ['GLOG_minloglevel'] = '3'
 
-import logging
+warnings.filterwarnings("ignore")
+
+# Silence specific library noise
+logging.getLogger('absl').setLevel(logging.WARNING)
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
+logging.getLogger('keras').setLevel(logging.ERROR)
+
+import sys
 import time
 import threading
 import socket
@@ -17,18 +28,21 @@ from brain.intelligence import IntelligenceController
 from api.ha_connectivity import HAConnectivity
 from api.web_server import WebServer
 
-def setup_logging():
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+# Ultimate root logging setup
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+root_logger.handlers = []
+root_logger.addHandler(ch)
     
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('localhost', port)) == 0
 
 def main():
-    setup_logging()
     logger = logging.getLogger("RobotMain")
     
     logger.info("Initializing Robot Dog 2.0...")
@@ -94,6 +108,7 @@ def main():
             imu.update()
             battery.update()
             ultrasonic.update()
+            buzzer.update() # Sync mock state
             
             # B. Intelligence (Behavior Tree)
             intelligence.update()

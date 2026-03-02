@@ -195,7 +195,8 @@ class IntelligenceController:
             "last_gesture": None,
             "system_mode": "autonomous", # autonomous, manual, sit, down
             "target_tilt": 90,
-            "play_interest": 1.0 # Initial: Fully motivated
+            "play_interest": 1.0, # Initial: Fully motivated
+            "gesture_trust_threshold": config.get("system.gesture_trust_threshold", 0.1)
         }
         
         db_path = os.path.join(os.path.dirname(__file__), "face_db.json")
@@ -385,7 +386,7 @@ class IntelligenceController:
         logger.info("Stopping Intelligence controller (Vision Process)...")
         self.vision.stop()
         # Wait for graceful stop with timeout, then force if needed
-        self.vision.join(timeout=2.0)
+        self.vision.join(timeout=5.0)
         if self.vision.is_alive():
             logger.warning("Vision process did not stop gracefully, terminating.")
             self.vision.terminate()

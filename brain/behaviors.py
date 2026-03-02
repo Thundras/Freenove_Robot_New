@@ -40,7 +40,9 @@ class FollowPerson(Leaf):
                 self.context["target_tilt"] = current_tilt + (error_y * 15.0) # Move 15 degrees max per frame correction
             
             if dist > 800:
-                logger.info(f"Following person (Dist: {dist}mm, Turn: {turn_rate:.2f})")
+                if time.time() - self.last_log_time > 2.0:
+                    logger.info(f"Following person (Dist: {dist}mm, Turn: {turn_rate:.2f})")
+                    self.last_log_time = time.time()
                 self.context["gait"].set_target_speed(0.5, turn_rate)
             else:
                 self.context["gait"].set_target_speed(0.0, turn_rate)
@@ -104,10 +106,16 @@ class HandleGesture(Leaf):
         self.last_handled_timestamp = timestamp
         self.gesture_buffer.append(label)
         
-        if len(self.gesture_buffer) < 3:
+        # Buffering Feedback: Subtle buzzer click on first frame of a gesture
+        if len(self.gesture_buffer) == 1:
+            if "buzzer" in self.context["sensors"]:
+                self.context["sensors"]["buzzer"].beep(0.01) # Ultra-short click
+        
+        if len(self.gesture_buffer) < 3: # Back to 3 for better stability
             return False
             
         if not all(g == label for g in self.gesture_buffer):
+            logger.debug(f"Gesture buffer mismatch: {self.gesture_buffer}")
             self.gesture_buffer.pop(0)
             return False
         
@@ -120,13 +128,17 @@ class HandleGesture(Leaf):
             self.context["last_gesture"] = None
             return False
 
-        # Pillar 8: Social Security - Only obey trusted persons (>0.3 trust approx. 40 min)
+        # Pillar 8: Social Security - Use configurable trust threshold
         face_data = self.context.get("last_face")
         trust = face_data.get("trust", 0.0) if face_data else 0.0
-        if trust < 0.3 and label in ["COME", "SIT", "DOWN"]:
-            logger.info(f"Gesture {label} denied: Stranger or low trust (Trust: {trust:.2f})")
+        # Restored secure threshold (User's goal)
+        threshold = self.context.get("gesture_trust_threshold", 0.45) 
+        
+        if trust < threshold and label in ["COME", "SIT", "DOWN"]:
+            # Log as warning to make it stand out
+            logger.warning(f"SECURITY: Gesture {label} REFUSED! Trust: {trust:.2f} < Req: {threshold}")
             if "buzzer" in self.context["sensors"]:
-                # Lower pitch or longer beep for "Denied"
+                # Indicate rejection with a specific sound
                 self.context["sensors"]["buzzer"].beep(0.4) 
             self.context["last_gesture"] = None
             return False

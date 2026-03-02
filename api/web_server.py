@@ -111,7 +111,8 @@ class WebServer:
                 "pose": "normal",
                 "gait": "trot",
                 "battery": {"voltage": 0.0, "percentage": 0},
-                "led": {"pattern": "off", "color": [0,0,0], "pixels": []}
+                "led": {"pattern": "off", "color": [0,0,0], "pixels": []},
+                "buzzer": {"active": False}
             }
                 
             if self.intelligence:
@@ -123,6 +124,9 @@ class WebServer:
                 if "led" in self.intelligence.context["sensors"]:
                     led = self.intelligence.context["sensors"]["led"]
                     status["led"] = getattr(led, "current_state", status["led"])
+                if "buzzer" in self.intelligence.context["sensors"]:
+                    buzzer = self.intelligence.context["sensors"]["buzzer"]
+                    status["buzzer"] = {"active": getattr(buzzer, "is_beeping", False)}
             
             if self.movement:
                 status["pose"] = getattr(self.movement, "current_pose", "normal")

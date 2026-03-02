@@ -73,13 +73,25 @@ class MockUltrasonic(ISensor):
 
 class MockBuzzer:
     def __init__(self):
-        pass
+        self.is_beeping = False
+        self.stop_time = 0
+        
     def beep(self, duration=0.1):
         logger.debug(f"Mock Buzzer: BEEP ({duration}s)")
+        self.is_beeping = True
+        self.stop_time = time.time() + duration
+        
     def on(self):
-        pass
+        self.is_beeping = True
+        self.stop_time = time.time() + 999999 # Forever
+        
     def off(self):
-        pass
+        self.is_beeping = False
+        self.stop_time = 0
+
+    def update(self):
+        if self.is_beeping and time.time() > self.stop_time:
+            self.is_beeping = False
 
 class MockLed:
     def __init__(self):
