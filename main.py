@@ -87,10 +87,23 @@ def main():
             time.sleep(sleep_time)
             
     except KeyboardInterrupt:
-        logger.info("Shutdown requested...")
-        intelligence.stop()
-        ha.disconnect()
-        servo_ctrl.release_all()
+        logger.info("Shutdown requested. Cleaning up...")
+        try:
+            intelligence.stop()
+        except Exception as e:
+            logger.error(f"Error stopping intelligence: {e}")
+            
+        try:
+            ha.disconnect()
+        except Exception as e:
+            logger.error(f"Error disconnecting HA: {e}")
+            
+        try:
+            servo_ctrl.release_all()
+        except Exception as e:
+            logger.error(f"Error releasing servos: {e}")
+        
+        logger.info("Robot shutdown complete.")
 
 if __name__ == "__main__":
     main()

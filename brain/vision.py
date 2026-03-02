@@ -170,6 +170,8 @@ class VisionProcess(multiprocessing.Process):
                             # Normalize coordinates
                             h_frame, w_frame = frame.shape[:2]
                             try:
+                                if self.result_queue.full():
+                                    self.result_queue.get_nowait()
                                 self.result_queue.put_nowait({
                                     "type": "object",
                                     "label": "ball",
@@ -179,7 +181,7 @@ class VisionProcess(multiprocessing.Process):
                                     "conf": 0.9,
                                     "interest": "high"
                                 })
-                            except: pass
+                            except Exception: pass
 
                 # --- AI STEP 1: Gesture Recognition (MediaPipe) ---
                 if do_ai and hands is not None:
@@ -209,12 +211,14 @@ class VisionProcess(multiprocessing.Process):
                                 label = "DOWN" # Pointing finger / Down command
                             
                             try:
+                                if self.result_queue.full():
+                                    self.result_queue.get_nowait()
                                 self.result_queue.put_nowait({
                                     "type": "gesture",
                                     "label": label,
                                     "confidence": 0.95
                                 })
-                            except: pass
+                            except Exception: pass
 
                 # --- AI STEP 2: Object Detection (TFLite) ---
                 if do_ai and detector is not None:
@@ -261,14 +265,18 @@ class VisionProcess(multiprocessing.Process):
                                 if target_tilt != self.tilt_angle:
                                     self.tilt_angle = target_tilt
                                     try:
+                                        if self.result_queue.full():
+                                            self.result_queue.get_nowait()
                                         self.result_queue.put_nowait({
                                             "type": "tilt_request",
                                             "angle": self.tilt_angle
                                         })
-                                    except: pass
+                                    except Exception: pass
                                     self.last_tilt_update = time.time()
 
                             try:
+                                if self.result_queue.full():
+                                    self.result_queue.get_nowait()
                                 self.result_queue.put_nowait({
                                     "type": "object", 
                                     "label": label, 
@@ -278,7 +286,7 @@ class VisionProcess(multiprocessing.Process):
                                     "center_x": center_x,
                                     "center_y": center_y
                                 })
-                            except: pass
+                            except Exception: pass
                             
                             icon = "👤" if label == "person" else "🐾"
                             interest_str = f" [Interest: {interest_level}]" if label == "dog" else ""

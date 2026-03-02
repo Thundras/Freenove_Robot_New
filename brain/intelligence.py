@@ -32,8 +32,9 @@ class IntelligenceController:
         }
         
         # Vision Process for AI (Offloaded)
-        self.result_queue = multiprocessing.Queue()
-        self.frame_queue = multiprocessing.Queue()
+        # Use maxsize to prevent memory bloat and blockages if consumer (WebServer) stops
+        self.result_queue = multiprocessing.Queue(maxsize=10)
+        self.frame_queue = multiprocessing.Queue(maxsize=2)
         self.shared_imu = multiprocessing.Array('d', [0.0, 0.0, 0.0]) # [Roll, Pitch, Yaw]
         
         self.vision = VisionProcess(
@@ -127,6 +128,11 @@ class IntelligenceController:
         self.root.run()
 
     def stop(self):
+        logger.info("Stopping Intelligence controller (Vision Process)...")
         self.vision.stop()
-        self.vision.join()
+        # Wait for graceful stop with timeout, then force if needed
+        self.vision.join(timeout=2.0)
+        if self.vision.is_alive():
+            logger.warning("Vision process did not stop gracefully, terminating.")
+            self.vision.terminate()
         logger.info("Intelligence controller stopped")

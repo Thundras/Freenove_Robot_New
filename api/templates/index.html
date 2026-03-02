@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="de">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,42 +7,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
     <header>
         <h1>ROBOT CONTROL <span>V2.1</span></h1>
         <div id="status-badge" class="badge">System Online</div>
     </header>
-
     <nav class="tabs-nav">
         <button class="tab-btn active" onclick="showTab('tab-control')">Live Control</button>
         <button class="tab-btn" onclick="showTab('tab-settings')">System Settings</button>
     </nav>
-
-    <!-- TAB: CONTROL -->
     <div id="tab-control" class="tab-content active">
         <div class="video-container">
             <img src="/api/camera_stream" alt="Live View">
         </div>
-
         <div class="dashboard-grid">
             <section class="card">
-                <h2>🕹️ Motion Control</h2>
+                <h2>??? Motion Control</h2>
                 <div class="joystick">
-                    <button class="btn-ctrl" style="grid-area: up" onmousedown="sendCommand('forward')"
-                        onmouseup="stopCommand()">▲</button>
-                    <button class="btn-ctrl" style="grid-area: left" onmousedown="sendCommand('left')"
-                        onmouseup="stopCommand()">◀</button>
-                    <button class="btn-ctrl" style="grid-area: stop" onclick="sendCommand('stop')">■</button>
-                    <button class="btn-ctrl" style="grid-area: right" onmousedown="sendCommand('right')"
-                        onmouseup="stopCommand()">▶</button>
-                    <button class="btn-ctrl" style="grid-area: down" onmousedown="sendCommand('backward')"
-                        onmouseup="stopCommand()">▼</button>
+                    <button class="btn-ctrl" style="grid-area: up" onmousedown="sendCommand('forward')" onmouseup="stopCommand()">?</button>
+                    <button class="btn-ctrl" style="grid-area: left" onmousedown="sendCommand('left')" onmouseup="stopCommand()">?</button>
+                    <button class="btn-ctrl" style="grid-area: stop" onclick="sendCommand('stop')">�</button>
+                    <button class="btn-ctrl" style="grid-area: right" onmousedown="sendCommand('right')" onmouseup="stopCommand()">?</button>
+                    <button class="btn-ctrl" style="grid-area: down" onmousedown="sendCommand('backward')" onmouseup="stopCommand()">?</button>
                 </div>
             </section>
-
             <section class="card">
-                <h2>📊 Status & Mode</h2>
+                <h2>?? Status & Mode</h2>
                 <div class="setting-item">
                     <label>Movement Gait</label>
                     <select id="gait-select" onchange="changeGait(this.value)">
@@ -67,36 +56,26 @@
             </section>
         </div>
     </div>
-
-    <!-- TAB: SETTINGS -->
     <div id="tab-settings" class="tab-content">
         <div class="dashboard-grid">
-            <!-- Servo Calibration -->
             <section class="card">
-                <h2>⚙️ Servo Calibration</h2>
-                <div id="servo-list">
-                    <!-- Dynamic servo list will be inserted here -->
-                </div>
+                <h2>?? Servo Calibration</h2>
+                <div id="servo-list"></div>
             </section>
-
-            <!-- Vision & System -->
             <section class="card">
-                <h2>👁️ Vision & Performance</h2>
+                <h2>??? Vision & Performance</h2>
                 <div class="setting-item">
                     <label>Camera Stabilization</label>
                     <div class="setting-row">
                         <span>Active</span>
-                        <input type="checkbox" id="cfg-system-camera_stabilization"
-                            onchange="updateQuickConfig('system.camera_stabilization', this.checked)">
+                        <input type="checkbox" id="cfg-system-camera_stabilization" onchange="updateQuickConfig('system.camera_stabilization', this.checked)">
                     </div>
                 </div>
                 <div class="setting-item">
                     <label>Vision Skip Frames (CPU Save)</label>
-                    <input type="range" min="1" max="10" value="2" id="cfg-system-vision_processing_skip"
-                        oninput="updateQuickConfig('system.vision_processing_skip', parseInt(this.value))">
+                    <input type="range" min="1" max="10" value="2" id="cfg-system-vision_processing_skip" oninput="updateQuickConfig('system.vision_processing_skip', parseInt(this.value))">
                 </div>
-
-                <h2 style="margin-top:2rem">🌐 MQTT Connectivity</h2>
+                <h2 style="margin-top:2rem">?? MQTT Connectivity</h2>
                 <div class="setting-item">
                     <label>Broker Address</label>
                     <input type="text" id="cfg-mqtt-broker" placeholder="e.g. 192.168.1.10">
@@ -105,10 +84,8 @@
             </section>
         </div>
     </div>
-
     <script>
         let currentConfig = {};
-
         function showTab(id) {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -116,88 +93,77 @@
             event.currentTarget.classList.add('active');
             if (id === 'tab-settings') loadConfig();
         }
-
         async function loadConfig() {
-            const res = await fetch('/api/config');
-            currentConfig = await res.json();
-
-            // Populate System UI Elements
-            document.getElementById('cfg-system-camera_stabilization').checked = currentConfig.system.camera_stabilization;
-            document.getElementById('cfg-system-vision_processing_skip').value = currentConfig.system.vision_processing_skip;
-            document.getElementById('cfg-mqtt-broker').value = currentConfig.mqtt.broker;
-
-            // Generate Servo UI for all legs and joints
-            let servoHtml = '';
-            const legs = [
-                { id: 'leg_fl', name: 'Vorne Links' },
-                { id: 'leg_fr', name: 'Vorne Rechts' },
-                { id: 'leg_rl', name: 'Hinten Links' },
-                { id: 'leg_rr', name: 'Hinten Rechts' }
-            ];
-            const joints = [
-                { id: 'coxa', name: 'Hüfte (Seitlich)' },
-                { id: 'femur', name: 'Oberschenkel (Höhe)' },
-                { id: 'tibia', name: 'Unterschenkel (Knie)' }
-            ];
-
-            legs.forEach(leg => {
-                servoHtml += `<h3>${leg.name} Bein</h3><div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">`;
-                joints.forEach(joint => {
-                    const val = currentConfig.servos[leg.id][joint.id].middle;
-                    const path = `servos.${leg.id}.${joint.id}.middle`;
-                    servoHtml += `
-                        <div class="setting-item" style="margin-bottom: 0;">
-                            <label style="font-size: 0.8rem;">${joint.name} Offset (${val}°)</label>
-                            <input type="range" min="45" max="135" value="${val}" 
-                                   oninput="this.previousElementSibling.innerText = '${joint.name} Offset (' + this.value + '°)'; updateQuickConfig('${path}', parseInt(this.value))">
-                        </div>
-                    `;
+            try {
+                const res = await fetch('/api/config');
+                currentConfig = await res.json();
+                if (currentConfig.system) {
+                    document.getElementById('cfg-system-camera_stabilization').checked = currentConfig.system.camera_stabilization || false;
+                    document.getElementById('cfg-system-vision_processing_skip').value = currentConfig.system.vision_processing_skip || 2;
+                }
+                if (currentConfig.mqtt) {
+                    document.getElementById('cfg-mqtt-broker').value = currentConfig.mqtt.broker || "";
+                }
+                if (!currentConfig.servos) return;
+                let servoHtml = '';
+                const legs = [
+                    { id: 'leg_fl', name: 'Vorne Links' },
+                    { id: 'leg_fr', name: 'Vorne Rechts' },
+                    { id: 'leg_rl', name: 'Hinten Links' },
+                    { id: 'leg_rr', name: 'Hinten Rechts' }
+                ];
+                const joints = [
+                    { id: 'coxa', name: 'H�fte (Seitlich)' },
+                    { id: 'femur', name: 'Oberschenkel (H�he)' },
+                    { id: 'tibia', name: 'Unterschenkel (Knie)' }
+                ];
+                legs.forEach(leg => {
+                    if (currentConfig.servos[leg.id]) {
+                        servoHtml += `<h3>${leg.name} Bein</h3><div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">`;
+                        joints.forEach(joint => {
+                            if (currentConfig.servos[leg.id][joint.id]) {
+                                const val = currentConfig.servos[leg.id][joint.id].middle;
+                                const path = `servos.${leg.id}.${joint.id}.middle`;
+                                servoHtml += `<div class="setting-item" style="margin-bottom: 0;">
+                                    <label style="font-size: 0.8rem;">${joint.name} Offset (${val}�)</label>
+                                    <input type="range" min="45" max="135" value="${val}" 
+                                           oninput="this.previousElementSibling.innerText = '${joint.name} Offset (' + this.value + '�)'; updateQuickConfig('${path}', parseInt(this.value))">
+                                </div>`;
+                            }
+                        });
+                        servoHtml += `</div>`;
+                    }
                 });
-                servoHtml += `</div>`;
-            });
-
-            // Add Camera Tilt Servo
-            if (currentConfig.servos && currentConfig.servos.camera && currentConfig.servos.camera.tilt) {
-                const camTilt = currentConfig.servos.camera.tilt.middle;
-                servoHtml += `<h3>Kamera</h3><div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                    <div class="setting-item" style="margin-bottom: 0;">
-                        <label style="font-size: 0.8rem;">Neigung / Tilt (${camTilt}°)</label>
-                        <input type="range" min="45" max="135" value="${camTilt}" 
-                               oninput="this.previousElementSibling.innerText = 'Neigung / Tilt (' + this.value + '°)'; updateQuickConfig('servos.camera.tilt.middle', parseInt(this.value))">
-                    </div>
-                </div>`;
+                if (currentConfig.servos.camera && currentConfig.servos.camera.tilt) {
+                    const camTilt = currentConfig.servos.camera.tilt.middle;
+                    servoHtml += `<h3>Kamera</h3><div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                        <div class="setting-item" style="margin-bottom: 0;">
+                            <label style="font-size: 0.8rem;">Neigung / Tilt (${camTilt}�)</label>
+                            <input type="range" min="45" max="135" value="${camTilt}" 
+                                   oninput="this.previousElementSibling.innerText = 'Neigung / Tilt (' + this.value + '�)'; updateQuickConfig('servos.camera.tilt.middle', parseInt(this.value))">
+                        </div>
+                    </div>`;
+                }
+                document.getElementById('servo-list').innerHTML = servoHtml;
+            } catch (err) {
+                console.error("Config load error:", err);
+                document.getElementById('servo-list').innerHTML = `<p style="color: #ef4444;">Error: ${err.message}</p>`;
             }
-
-            document.getElementById('servo-list').innerHTML = servoHtml;
         }
-
         async function updateQuickConfig(key, value) {
             const data = {};
             data[key] = value;
-            await fetch('/api/config/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
+            await fetch('/api/config/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
         }
-
         async function saveAllSettings() {
-            const data = {
-                "mqtt.broker": document.getElementById('cfg-mqtt-broker').value
-            };
-            await fetch('/api/config/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            alert("Settings saved successfully!");
+            const data = { "mqtt.broker": document.getElementById('cfg-mqtt-broker').value };
+            await fetch('/api/config/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            alert("Settings saved!");
         }
-
         function sendCommand(cmd) { fetch(`/api/command/${cmd}`, { method: 'POST' }); }
         function stopCommand() { fetch('/api/command/stop', { method: 'POST' }); }
         function changeGait(gait) { fetch(`/api/gait/${gait}`, { method: 'POST' }); }
         function changeMode(mode) { fetch(`/api/mode/${mode}`, { method: 'POST' }); }
     </script>
 </body>
-
 </html>
