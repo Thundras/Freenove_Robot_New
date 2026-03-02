@@ -18,6 +18,9 @@ try:
     import tflite_runtime.interpreter as tflite
 except ImportError:
     try:
+        import warnings
+        # Suppress TensorFlow Lite deprecation warning
+        warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow.lite")
         import tensorflow.lite as tflite
     except ImportError:
         tflite = None
