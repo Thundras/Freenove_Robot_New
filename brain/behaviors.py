@@ -143,11 +143,11 @@ class ExploreRoom(Leaf):
 
     def run(self) -> bool:
         """Just walk forward"""
-        if self.context.get("system_mode") not in ["autonomous"]:
+        if self.context.get("system_mode") != "autonomous":
             return False
             
         logger.info("Exploring room...")
-        # self.gait.set_target_speed(0.5)
+        self.gait.set_target_speed(0.5)
         return True
 class AlarmPulse(Leaf):
     def __init__(self, name, context):

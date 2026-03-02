@@ -34,21 +34,32 @@
             <section class='card'>
                 <h2>📊 Status & Mode</h2>
                 <div class='setting-item'>
-                    <label>Movement Gait</label>
+                    <label>Gangart (Gait)</label>
                     <select id="gait-select" onchange="changeGait(this.value)">
-                        <option value="trot">Trot (Fast)</option>
-                        <option value="walk">Walk (Stable)</option>
+                        <option value="trot">Trab (Trot)</option>
+                        <option value="walk">Schritt (Walk)</option>
                     </select>
                 </div>
                 <div class='setting-item'>
-                    <label>Intelligence Mode</label>
+                    <label>Körperhaltung (Pose)</label>
+                    <select id="pose-select" onchange="changePose(this.value)">
+                        <option value="normal">Normal</option>
+                        <option value="submissive">Unterwürfig</option>
+                        <option value="sit">Sitzen</option>
+                        <option value="down">Liegen</option>
+                        <option value="aggressive">Aggressiv</option>
+                        <option value="playful">Verspielt</option>
+                    </select>
+                </div>
+                <div class='setting-item'>
+                    <label>Intelligenz-Modus</label>
                     <select id="mode-select" onchange="changeMode(this.value)">
-                        <option value="home">Normal / Home</option>
-                        <option value="alarm">Security / Alarm</option>
+                        <option value="autonomous">Normal / Home</option>
+                        <option value="alarm">Sicherheit / Alarm</option>
                     </select>
                 </div>
                 <div class='setting-item'>
-                    <label>Battery Level</label>
+                    <label>Batteriestand</label>
                     <div class='setting-row'>
                         <span id="battery-val" style="font-weight: 700; color: #10b981;">-- V</span>
                     </div>
@@ -59,15 +70,15 @@
     <div id='tab-settings' class='tab-content'>
         <div class='dashboard-grid'>
             <section class='card'>
-                <h2>⚙️ Servo Calibration</h2>
+                <h2>⚙️ Servo Kalibrierung</h2>
                 <div id='servo-list'></div>
             </section>
             <section class='card'>
                 <h2>👁️ Vision & Performance</h2>
                 <div class='setting-item'>
-                    <label>Camera Stabilization</label>
+                    <label>Kamera-Stabilisierung</label>
                     <div class='setting-row'>
-                        <span>Active</span>
+                        <span>Aktiv</span>
                         <input type="checkbox" id="cfg-system-camera_stabilization" onchange="updateQuickConfig('system.camera_stabilization', this.checked)">
                     </div>
                 </div>
@@ -75,12 +86,12 @@
                     <label>Vision Skip Frames (CPU Save)</label>
                     <input type="range" min="1" max="10" value="2" id="cfg-system-vision_processing_skip" oninput="updateQuickConfig('system.vision_processing_skip', parseInt(this.value))">
                 </div>
-                <h2 style="margin-top:2rem">🌐 MQTT Connectivity</h2>
+                <h2 style="margin-top:2rem">🌐 MQTT Konnektivität</h2>
                 <div class='setting-item'>
-                    <label>Broker Address</label>
-                    <input type="text" id="cfg-mqtt-broker" placeholder="e.g. 192.168.1.10">
+                    <label>Broker Adresse</label>
+                    <input type="text" id="cfg-mqtt-broker" placeholder="z.B. 192.168.1.10">
                 </div>
-                <button class='btn-save' onclick="saveAllSettings()">Save Configuration</button>
+                <button class='btn-save' onclick="saveAllSettings()">Einstellungen Speichern</button>
             </section>
         </div>
     </div>
@@ -155,11 +166,12 @@
         async function saveAllSettings() {
             const data = { "mqtt.broker": document.getElementById('cfg-mqtt-broker').value };
             await fetch('/api/config/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-            alert("Settings saved!");
+            alert("Einstellungen gespeichert!");
         }
         function sendCommand(cmd) { fetch('/api/command/' + cmd, { method: 'POST' }); }
         function stopCommand() { fetch('/api/command/stop', { method: 'POST' }); }
         function changeGait(gait) { fetch('/api/gait/' + gait, { method: 'POST' }); }
+        function changePose(pose) { fetch('/api/pose/' + pose, { method: 'POST' }); }
         function changeMode(mode) { fetch('/api/mode/' + mode, { method: 'POST' }); }
     </script>
 </body>

@@ -50,11 +50,24 @@ class WebServer:
                 self.movement.set_gait(gait)
             return jsonify({"status": "ok", "gait": gait})
 
+        @self.app.route('/api/pose/<pose>', methods=['POST'])
+        def handle_pose(pose):
+            logger.info(f"Posture change requested: {pose}")
+            if self.movement:
+                self.movement.set_pose(pose)
+            if self.intelligence:
+                # Map 'normal' pose back to autonomous mode to resume activity
+                mode_to_set = "autonomous" if pose == "normal" else pose
+                self.intelligence.context["system_mode"] = mode_to_set
+            return jsonify({"status": "ok", "pose": pose})
+
         @self.app.route('/api/mode/<mode>', methods=['POST'])
         def handle_mode(mode):
             logger.info(f"System Mode change requested: {mode}")
             if self.intelligence:
                 self.intelligence.context["system_mode"] = mode
+            if mode == "autonomous" and self.movement:
+                self.movement.set_pose("normal")
             return jsonify({"status": "ok", "mode": mode})
 
         @self.app.route('/api/camera_stream')
