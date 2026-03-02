@@ -126,14 +126,48 @@
             document.getElementById('cfg-system-vision_processing_skip').value = currentConfig.system.vision_processing_skip;
             document.getElementById('cfg-mqtt-broker').value = currentConfig.mqtt.broker;
 
-            // Simple Servo UI Generator (Example for Leg FL)
-            const servoHtml = `
-                <div class="setting-item">
-                    <label>Front Left Coxa - Offset</label>
-                    <input type="range" min="45" max="135" value="${currentConfig.servos.leg_fl.coxa.middle}" 
-                           oninput="updateQuickConfig('servos.leg_fl.coxa.middle', parseInt(this.value))">
-                </div>
-            `;
+            // Generate Servo UI for all legs and joints
+            let servoHtml = '';
+            const legs = [
+                { id: 'leg_fl', name: 'Vorne Links' },
+                { id: 'leg_fr', name: 'Vorne Rechts' },
+                { id: 'leg_rl', name: 'Hinten Links' },
+                { id: 'leg_rr', name: 'Hinten Rechts' }
+            ];
+            const joints = [
+                { id: 'coxa', name: 'Hüfte (Seitlich)' },
+                { id: 'femur', name: 'Oberschenkel (Höhe)' },
+                { id: 'tibia', name: 'Unterschenkel (Knie)' }
+            ];
+
+            legs.forEach(leg => {
+                servoHtml += `<h3>${leg.name} Bein</h3><div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">`;
+                joints.forEach(joint => {
+                    const val = currentConfig.servos[leg.id][joint.id].middle;
+                    const path = `servos.${leg.id}.${joint.id}.middle`;
+                    servoHtml += `
+                        <div class="setting-item" style="margin-bottom: 0;">
+                            <label style="font-size: 0.8rem;">${joint.name} Offset (${val}°)</label>
+                            <input type="range" min="45" max="135" value="${val}" 
+                                   oninput="this.previousElementSibling.innerText = '${joint.name} Offset (' + this.value + '°)'; updateQuickConfig('${path}', parseInt(this.value))">
+                        </div>
+                    `;
+                });
+                servoHtml += `</div>`;
+            });
+
+            // Add Camera Tilt Servo
+            if (currentConfig.servos && currentConfig.servos.camera && currentConfig.servos.camera.tilt) {
+                const camTilt = currentConfig.servos.camera.tilt.middle;
+                servoHtml += `<h3>Kamera</h3><div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                    <div class="setting-item" style="margin-bottom: 0;">
+                        <label style="font-size: 0.8rem;">Neigung / Tilt (${camTilt}°)</label>
+                        <input type="range" min="45" max="135" value="${camTilt}" 
+                               oninput="this.previousElementSibling.innerText = 'Neigung / Tilt (' + this.value + '°)'; updateQuickConfig('servos.camera.tilt.middle', parseInt(this.value))">
+                    </div>
+                </div>`;
+            }
+
             document.getElementById('servo-list').innerHTML = servoHtml;
         }
 
