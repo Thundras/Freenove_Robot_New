@@ -195,7 +195,7 @@ class VisionProcess(multiprocessing.Process):
             root.addHandler(ch)
             
         # Silence library noise in the subprocess
-        logging.getLogger('absl').setLevel(logging.WARNING)
+        logging.getLogger('absl').setLevel(logging.ERROR)
         logging.getLogger('tensorflow').setLevel(logging.ERROR)
         
         logger.info("Vision process started (Real AI Mode)")

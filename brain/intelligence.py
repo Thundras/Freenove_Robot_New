@@ -171,6 +171,14 @@ class SocialMemory:
                     except: pass
             self.save()
 
+    def rename_face(self, face_id, new_name):
+        if face_id in self.faces:
+            self.faces[face_id]["name"] = new_name
+            self.save()
+            logger.info(f"Face {face_id} renamed to '{new_name}'")
+            return True
+        return False
+
 class IntelligenceController:
     """
     Manages the robot's higher-level behavior tree and asynchronous vision pipeline.

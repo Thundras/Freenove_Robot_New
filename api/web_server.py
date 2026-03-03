@@ -142,6 +142,19 @@ class WebServer:
                 return jsonify(self.intelligence.social_memory.faces)
             return jsonify({})
 
+        @self.app.route('/api/faces/rename', methods=['POST'])
+        def rename_face():
+            data = request.json
+            if not data or "id" not in data or "name" not in data:
+                return jsonify({"status": "error", "message": "Missing id or name"}), 400
+            
+            if self.intelligence and hasattr(self.intelligence, "social_memory"):
+                success = self.intelligence.social_memory.rename_face(data["id"], data["name"])
+                if success:
+                    return jsonify({"status": "ok"})
+                return jsonify({"status": "error", "message": "Face ID not found"}), 404
+            return jsonify({"status": "error", "message": "Intelligence not ready"}), 503
+
     def run(self):
         host = self.config.get("system.web_host", "0.0.0.0")
         port = self.config.get("system.web_port", 5000)
