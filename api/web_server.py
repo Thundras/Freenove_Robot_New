@@ -155,6 +155,20 @@ class WebServer:
                 return jsonify({"status": "error", "message": "Face ID not found"}), 404
             return jsonify({"status": "error", "message": "Intelligence not ready"}), 503
 
+        @self.app.route('/api/map', methods=['GET'])
+        def get_map():
+            if self.intelligence and hasattr(self.intelligence, "mapping"):
+                m = self.intelligence.mapping
+                # Convert tuple keys to strings for JSON serialization
+                serializable_grid = {f"{k[0]},{k[1]}": v for k, v in m.grid.items()}
+                return jsonify({
+                    "robot_pos": m.robot_pos,
+                    "robot_yaw": m.robot_yaw,
+                    "grid": serializable_grid,
+                    "landmarks": m.landmarks
+                })
+            return jsonify({})
+
     def run(self):
         host = self.config.get("system.web_host", "0.0.0.0")
         port = self.config.get("system.web_port", 5000)

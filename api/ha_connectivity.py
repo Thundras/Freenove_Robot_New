@@ -47,7 +47,8 @@ class HAConnectivity:
             ("sensor", "imu_pitch", "IMU Pitch", "°"),
             ("select", "gait", "Gait Mode", None),
             ("select", "system_mode", "System Mode", None),
-            ("camera", "vision", "Robot Perspective", None)
+            ("camera", "vision", "Robot Perspective", None),
+            ("sensor", "env_map", "Environmental Map", None)
         ]
         
         for dtype, oid, name, unit in devices:
@@ -70,13 +71,23 @@ class HAConnectivity:
                 payload["topic"] = self.mqtt_mgr.get_topic("state", oid)
                 payload["mjpeg_url"] = f"http://{host}:{port}/api/camera_stream"
 
+            # Special case for Map Sensor
+            if oid == "env_map":
+                # We use JSON attributes to store the complex map structure
+                payload["json_attributes_topic"] = self.mqtt_mgr.get_topic("state", oid)
+                payload["value_template"] = "{{ value_json.robot_pos | default('Unknown') }}"
+
             self.client.publish(topic, json.dumps(payload), retain=True)
             logger.info(f"Published discovery for {name}")
 
     def publish_state(self, object_id: str, value: Any):
-        """Update a state in HA"""
+        """Update a state in HA. Handles strings, numbers, and dicts (JSON)"""
         topic = self.mqtt_mgr.get_topic("state", object_id)
-        self.client.publish(topic, str(value))
+        if isinstance(value, (dict, list)):
+            payload = json.dumps(value)
+        else:
+            payload = str(value)
+        self.client.publish(topic, payload)
 
     def on_message(self, client, userdata, msg):
         """Handle incoming command messages from Home Assistant"""

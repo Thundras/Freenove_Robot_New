@@ -121,9 +121,22 @@ def main():
             servo_ctrl.update_poses(target_poses, ik)
             
             # E. Telemetry to HA
-            if int(time.time() * 10) % 50 == 0: # 0.5 Hz
+            if int(time.time() * 10) % 10 == 0: # 1 Hz
                 ha.publish_state("battery", battery.get_data().voltage)
                 ha.publish_state("system_mode", intelligence.context["system_mode"])
+            
+            if int(time.time() * 10) % 20 == 0: # 0.5 Hz
+                if intelligence and hasattr(intelligence, "mapping"):
+                    m = intelligence.mapping
+                    # Convert tuple keys to strings for MQTT/JSON
+                    serializable_grid = {f"{k[0]},{k[1]}": v for k, v in m.grid.items()}
+                    map_data = {
+                        "robot_pos": m.robot_pos,
+                        "robot_yaw": m.robot_yaw,
+                        "grid": serializable_grid,
+                        "landmarks": m.landmarks
+                    }
+                    ha.publish_state("env_map", map_data)
             
             # --- SLEEP ---
             elapsed = time.perf_counter() - start_time

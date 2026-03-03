@@ -7,6 +7,7 @@ import numpy as np
 from .bt_core import Selector, Sequence
 from .behaviors import AvoidObstacles, SmartExplore, ReactToPerson, FollowPerson, Idle, HandleGesture, AlarmPulse, SecurityMonitor, DogSocialInteraction, PlayWithBall, AmbientLook, ReactToFace
 from .vision import VisionProcess
+from .mapping import MappingManager
 
 logger = logging.getLogger(__name__)
 
@@ -231,6 +232,10 @@ class IntelligenceController:
         self.tilt_channel = config.get("servos.camera.tilt.channel", 14)
         self.mech_stab_enabled = config.get("system.camera_stabilization", True)
         
+        # SLAM / Mapping
+        self.mapping = MappingManager()
+        self.last_update_ts = time.time()
+        
         # BT Setup
         self.root = self.setup_behavior_tree()
 
@@ -331,11 +336,49 @@ class IntelligenceController:
                         self.last_db_save = now
                 
                 self.context["last_object_detection"] = data
+            elif data.get("type") == "landmark":
+                self.mapping.add_landmark(data["id"], data["dist"], data["angle"])
             elif data.get("type") == "gesture":
                 self.context["last_gesture"] = data
             elif data.get("type") == "tilt_request":
                 self.context["target_tilt"] = data.get("angle", 90)
         
+        # --- SLAM: Odometry update ---
+        dt = now - self.last_update_ts
+        self.last_update_ts = now
+        
+        if self.gait:
+            # step_length = 40mm per half-cycle = 80mm per full cycle? 
+            # In update, speed is cyc/sec. 
+            # Based on gait.py, speed of 1.0 means 1 full cycle (0 to 1.0 phase) per second.
+            # During one cycle,stance phase covers 'step_length'.
+            speed_mm_s = self.gait.current_speed * self.gait.step_length
+            dx = speed_mm_s * dt
+            # Estimation: turn_rate 1.0 -> ~0.8 rad/s (~45 deg/s)
+            dyaw = self.gait.turn_rate * 0.8 * dt
+            self.mapping.update_odometry(dx, 0.0, dyaw)
+            
+        # --- SLAM: Obstacle update ---
+        if self.sensors and "ultrasonic" in self.sensors:
+            u_data = self.sensors["ultrasonic"].get_data()
+            if u_data:
+                dist_cm = u_data.metadata.get("distance_cm", 100.0)
+                dist_mm = dist_cm * 10
+                
+                # If we see an obstacle within 100cm, add it
+                if dist_cm < 100.0:
+                    self.mapping.add_obstacle(dist_mm, 0.0)
+                
+                # If path is clear (e.g. > 20cm), clear points in front of us
+                if dist_cm > 20.0:
+                    # Clear up to the measured distance (capped at 1000mm)
+                    self.mapping.clear_path(min(dist_mm, 1000.0), 0.0)
+        
+        # --- SLAM: Map Aging/Cleanup (Every 10 seconds) ---
+        if now - getattr(self, "last_map_cleanup", 0) > 10.0:
+            self.mapping.cleanup_old_points(max_age_seconds=300) # 5 min persistence
+            self.last_map_cleanup = now
+            
         # Cleanup stale detections (older than 1.0s)
         if self.context["last_object_detection"] and (now - self.context["last_object_detection"].get("timestamp", 0) > 1.0):
              self.context["last_object_detection"] = None

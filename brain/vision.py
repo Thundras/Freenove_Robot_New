@@ -222,6 +222,11 @@ class VisionProcess(multiprocessing.Process):
             except Exception as e:
                 logger.error(f"Failed to load MediaPipe HandLandmarker: {e}")
 
+        # Aruco Setup
+        aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+        aruco_params = cv2.aruco.DetectorParameters()
+        aruco_detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
+
         # TFLite for Object Detection (Person/Pet)
         detector = None
         model_path = "brain/models/coco_ssd_mobilenet.tflite"
@@ -329,6 +334,33 @@ class VisionProcess(multiprocessing.Process):
                                 viz_state["ball"] = None
                         else:
                             viz_state["ball"] = None
+
+                    # --- AI STEP 0.5: Aruco Landmark Detection ---
+                    if do_ai and aruco_detector is not None:
+                        corners, ids, rejected = aruco_detector.detectMarkers(frame)
+                        if ids is not None:
+                            for i, marker_id in enumerate(ids.flatten()):
+                                # Estimate distance and angle
+                                # Basic heuristic: marker is ~100mm wide
+                                marker_corners = corners[i][0]
+                                width_px = np.linalg.norm(marker_corners[0] - marker_corners[1])
+                                # focal_length ~ 300 for 320px width (approx)
+                                distance_mm = (300 * 100) / width_px if width_px > 0 else 5000
+                                
+                                # Center offset for angle
+                                center_x = np.mean(marker_corners[:, 0])
+                                angle_rel = (center_x / w_frame - 0.5) * 1.0 # ~60 deg FOV
+                                
+                                try:
+                                    if self.result_queue.full(): self.result_queue.get_nowait()
+                                    self.result_queue.put_nowait({
+                                        "type": "landmark",
+                                        "id": int(marker_id),
+                                        "dist": distance_mm,
+                                        "angle": angle_rel
+                                    })
+                                    logger.debug(f"Aruco detected: {marker_id} at {distance_mm:.1f}mm")
+                                except: pass
 
                     # --- AI STEP 1: Gesture Recognition (MediaPipe Tasks API) ---
                     if do_ai and hand_landmarker is not None:

@@ -351,6 +351,7 @@
     <nav class='tabs-nav'>
         <button class='tab-btn active' onclick="showTab('tab-control', this)">Live Control</button>
         <button class='tab-btn' onclick="showTab('tab-social', this)">Social Memory</button>
+        <button class='tab-btn' onclick="showTab('tab-map', this)">Environment Map</button>
         <button class='tab-btn' onclick="showTab('tab-settings', this)">System Settings</button>
     </nav>
     <div id='tab-control' class='tab-content active'>
@@ -422,6 +423,40 @@
                 </p>
                 <div id="faces-list-full" class="faces-grid">
                     <i style="color: var(--text-dim)">Initialisiere Gedächtnis...</i>
+                </div>
+            </section>
+        </div>
+    </div>
+    <div id='tab-map' class='tab-content'>
+        <div class="dashboard-grid">
+            <section class="card"
+                style="grid-column: span 2; min-height: 500px; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h2>🗺️ Environmental Map (SLAM Light)</h2>
+                    <div style="font-size: 0.8rem; color: var(--text-dim);">
+                        Pos: <span id="robot-pos-txt" style="color: var(--accent);">0, 0</span> |
+                        Yaw: <span id="robot-yaw-txt" style="color: var(--accent);">0°</span>
+                    </div>
+                </div>
+                <div id="map-container"
+                    style="height: 440px; background: rgba(0,0,0,0.3); border-radius: 16px; position: relative; overflow: hidden; border: 1px solid var(--glass-border);">
+                    <canvas id="map-canvas"
+                        style="position: absolute; top:0; left:0; width: 100%; height: 100%; cursor: grab;"></canvas>
+                    <div
+                        style="position: absolute; bottom: 15px; left: 15px; padding: 10px; background: rgba(0,0,0,0.6); border-radius: 8px; font-size: 0.7rem; color: var(--text-dim); pointer-events: none; backdrop-filter: blur(4px);">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></div>
+                            Roboter
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                            <div style="width: 8px; height: 8px; background: #ef4444; border-radius: 2px;"></div>
+                            Hindernis
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                            <div style="width: 8px; height: 8px; background: #fbbf24; border-radius: 2px;"></div>
+                            Landmarke (Aruco)
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
@@ -524,7 +559,111 @@
             if (el) el.classList.add('active');
             if (id === 'tab-settings') loadConfig();
             if (id === 'tab-social') updateFaces();
+            if (id === 'tab-map') startMapLoop();
+            else stopMapLoop();
         }
+
+        let mapLoop = null;
+        async function startMapLoop() {
+            if (mapLoop) return;
+            mapLoop = setInterval(updateMap, 1000);
+            updateMap();
+        }
+        function stopMapLoop() {
+            if (mapLoop) clearInterval(mapLoop);
+            mapLoop = null;
+        }
+
+        async function updateMap() {
+            try {
+                const res = await fetch('/api/map');
+                const data = await res.json();
+                if (!data || !data.robot_pos) return;
+
+                document.getElementById('robot-pos-txt').innerText = `${Math.round(data.robot_pos[0])}, ${Math.round(data.robot_pos[1])} mm`;
+                document.getElementById('robot-yaw-txt').innerText = `${Math.round(data.robot_yaw * 180 / Math.PI)}°`;
+
+                renderMap(data);
+            } catch (err) { console.error("Map fetch error:", err); }
+        }
+
+        function renderMap(data) {
+            const canvas = document.getElementById('map-canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Handle DPI and Resizing without feedback loops
+            const dpr = window.devicePixelRatio || 1;
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+
+            if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+                canvas.width = Math.floor(w * dpr);
+                canvas.height = Math.floor(h * dpr);
+                ctx.scale(dpr, dpr);
+            }
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Centering and Scaling
+            // Origin is (0,0) in mm, we want to center the robot
+            const scale = 0.5; // 1mm = 0.5px
+            const centerX = w / 2;
+            const centerY = h / 2;
+
+            ctx.save();
+            ctx.translate(centerX - data.robot_pos[0] * scale, centerY - data.robot_pos[1] * scale);
+
+            // 1. Draw Grid (Obstacles)
+            ctx.fillStyle = "#ef4444";
+            for (const key in data.grid) {
+                const [cx, cy] = key.split(',').map(Number);
+                // Grid is in cm (10mm)
+                ctx.fillRect(cx * 10 * scale, cy * 10 * scale, 10 * scale, 10 * scale);
+            }
+
+            // 2. Draw Landmarks
+            ctx.fillStyle = "#fbbf24";
+            for (const id in data.landmarks) {
+                const [lx, ly] = data.landmarks[id];
+                ctx.beginPath();
+                ctx.rect(lx * scale - 5, ly * scale - 5, 10, 10);
+                ctx.fill();
+                ctx.fillStyle = "white";
+                ctx.font = "8px Inter";
+                ctx.fillText(`ID ${id}`, lx * scale + 8, ly * scale + 3);
+                ctx.fillStyle = "#fbbf24";
+            }
+
+            // 3. Draw Robot
+            ctx.restore();
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(data.robot_yaw);
+
+            // Body
+            ctx.fillStyle = "#3b82f6";
+            ctx.beginPath();
+            ctx.moveTo(15, 0);
+            ctx.lineTo(-10, -10);
+            ctx.lineTo(-10, 10);
+            ctx.closePath();
+            ctx.fill();
+
+            // Direction Glow
+            const grad = ctx.createLinearGradient(0, 0, 40, 0);
+            grad.addColorStop(0, "rgba(59, 130, 246, 0.4)");
+            grad.addColorStop(1, "rgba(59, 130, 246, 0)");
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.moveTo(15, 0);
+            ctx.lineTo(50, -25);
+            ctx.lineTo(50, 25);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
         async function loadConfig() {
             try {
                 const res = await fetch('/api/config');
