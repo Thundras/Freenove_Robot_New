@@ -144,7 +144,11 @@ def main():
             time.sleep(sleep_time)
             
     except KeyboardInterrupt:
-        logger.info("Shutdown requested. Cleaning up...")
+        logger.info("Shutdown requested.")
+    except Exception as e:
+        logger.error(f"FATAL ERROR in main loop: {e}", exc_info=True)
+    finally:
+        logger.info("Cleaning up components...")
         try:
             intelligence.stop()
         except Exception as e:

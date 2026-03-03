@@ -13,7 +13,7 @@ class MappingManager:
     """
     def __init__(self):
         self.grid = {} # Map coordinates (cm) -> last_seen_timestamp
-        self.landmarks: Dict[int, Tuple[float, float]] = {} # id -> (x, y) world coordinates
+        self.landmarks: Dict[int, Tuple[float, float, float]] = {} # id -> (x, y, yaw) world coordinates
         self.robot_pos = [0.0, 0.0] # (x, y) in mm
         self.robot_yaw = 0.0 # Orientation in radians
 
@@ -26,15 +26,18 @@ class MappingManager:
         self.robot_pos[1] += world_dy
         self.robot_yaw += dyaw
         
-    def add_landmark(self, marker_id: int, distance: float, angle_rel: float):
+    def add_landmark(self, marker_id: int, distance: float, angle_rel: float, marker_yaw_rel: float = 0.0):
         """Visual SLAM: Use Aruco markers to build map or re-localize"""
         world_angle = self.robot_yaw + angle_rel
         lx = self.robot_pos[0] + distance * math.cos(world_angle)
         ly = self.robot_pos[1] + distance * math.sin(world_angle)
         
+        # World orientation of the marker
+        world_yaw = self.robot_yaw + angle_rel + marker_yaw_rel
+        
         if marker_id not in self.landmarks:
-            self.landmarks[marker_id] = (lx, ly)
-            logger.info(f"New Visual Landmark: ID {marker_id} at ({lx:.1f}, {ly:.1f})")
+            self.landmarks[marker_id] = (lx, ly, world_yaw)
+            logger.info(f"New Visual Landmark: ID {marker_id} at ({lx:.1f}, {ly:.1f}) yaw={math.degrees(world_yaw):.1f}°")
 
     def add_obstacle(self, dist_mm: float, angle_rel: float):
         """Adds ultrasonic detection to the grid map with timestamp"""

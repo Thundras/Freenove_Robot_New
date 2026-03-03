@@ -19,6 +19,7 @@ logging.getLogger('absl').setLevel(logging.WARNING)
 import multiprocessing
 import time
 import numpy as np
+import math
 
 try:
     import cv2
@@ -143,18 +144,20 @@ class FaceAnalyzer:
         return None, None
 
 class VisionProcess(multiprocessing.Process):
-    def __init__(self, result_queue: multiprocessing.Queue, frame_queue: multiprocessing.Queue, config, shared_imu=None, identity_queue=None):
+    def __init__(self, result_queue: multiprocessing.Queue, frame_queue: multiprocessing.Queue, config, shared_imu=None, identity_queue=None, shared_flags=None):
         """
         Runs in a separate process to avoid blocking the high-frequency motor control loop.
         :param result_queue: Queue to send detection results back to the brain.
         :param frame_queue: Queue to send raw frames to the web server for streaming.
         :param identity_queue: Queue to receive recognized names from the brain.
+        :param shared_flags: Shared array for real-time config toggles [show_debug, soft_stab, ...]
         """
         super().__init__()
         self.result_queue = result_queue
         self.frame_queue = frame_queue
         self.identity_queue = identity_queue
         self.config = config
+        self.shared_flags = shared_flags
         self.running = multiprocessing.Event()
         self.running.set() # Set to True by default
         self.current_identity = None 
@@ -167,13 +170,21 @@ class VisionProcess(multiprocessing.Process):
         self.tilt_max = camera_cfg.get("max", 135)
         self.shared_imu = shared_imu
         self.mechanical_stab = self.config.get("system.camera_stabilization", True)
-        self.software_stab = self.config.get("system.software_stabilization", True)
-        self.stab_crop = self.config.get("system.stabilization_crop", 0.15) # 15% crop for DIS
+        self.software_stab = self.config.get("system.camera_stabilization", True)
+        self.stab_crop = self.config.get("system.camera_stabilization_crop", 0.15) # 15% crop for DIS
         self.last_tilt_update = time.time()
 
     def stop(self):
         logger.info("VisionProcess.stop() called")
         self.running.clear()
+
+    def transform_coords(self, x, y, M, cw, ch, sw, sh):
+        """Helper to map original frame coords to stabilized/cropped frame"""
+        # 1. Apply perspective/rotation matrix
+        nx = M[0, 0] * x + M[0, 1] * y + M[0, 2]
+        ny = M[1, 0] * x + M[1, 1] * y + M[1, 2]
+        # 2. Subtract Crop offset and Scale
+        return (nx - cw) * sw, (ny - ch) * sh
 
     def run(self):
         # Do NOT call self.running.set() here, it might override a stop request
@@ -227,6 +238,9 @@ class VisionProcess(multiprocessing.Process):
         aruco_params = cv2.aruco.DetectorParameters()
         aruco_detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
 
+        # Marker Registry for Distance Estimation
+        marker_config = self.config.get("mapping.markers", {})
+
         # TFLite for Object Detection (Person/Pet)
         detector = None
         model_path = "brain/models/coco_ssd_mobilenet.tflite"
@@ -256,7 +270,8 @@ class VisionProcess(multiprocessing.Process):
         viz_state = {
             "ball": None,    # (x, y, radius)
             "gesture": None, # (label, timestamp)
-            "objects": []    # List of (label, dist, box, color)
+            "objects": [],   # List of (label, dist, box, color)
+            "landmarks": None # (ids, corners)
         }
         
         # --- FACE ANALYZER ---
@@ -264,9 +279,11 @@ class VisionProcess(multiprocessing.Process):
         face_recognizer_path = os.path.join(os.path.dirname(__file__), "models", "face_recognition_sface.onnx")
         face_analyzer = FaceAnalyzer(face_detector_path, face_recognizer_path)
 
+        parent_pid = os.getppid()
         while self.running.is_set():
-            # Check for stop request multiple times in the loop if needed
-            if not self.running.is_set(): break
+            # Check for stop request or orphan state
+            if not self.running.is_set() or os.getppid() != parent_pid: 
+                break
             
             frame_count += 1
             if frame_count % 200 == 0:
@@ -338,29 +355,62 @@ class VisionProcess(multiprocessing.Process):
                     # --- AI STEP 0.5: Aruco Landmark Detection ---
                     if do_ai and aruco_detector is not None:
                         corners, ids, rejected = aruco_detector.detectMarkers(frame)
+                        viz_state["landmarks"] = (ids, corners) if ids is not None else None
+                        
                         if ids is not None:
                             for i, marker_id in enumerate(ids.flatten()):
-                                # Estimate distance and angle
-                                # Basic heuristic: marker is ~100mm wide
-                                marker_corners = corners[i][0]
-                                width_px = np.linalg.norm(marker_corners[0] - marker_corners[1])
-                                # focal_length ~ 300 for 320px width (approx)
-                                distance_mm = (300 * 100) / width_px if width_px > 0 else 5000
+                                # Get physical size from config or default to 100mm
+                                m_id_str = str(marker_id)
+                                phys_size = 100.0
+                                if m_id_str in marker_config:
+                                    phys_size = marker_config[m_id_str].get("size", 100.0)
                                 
-                                # Center offset for angle
-                                center_x = np.mean(marker_corners[:, 0])
-                                angle_rel = (center_x / w_frame - 0.5) * 1.0 # ~60 deg FOV
+                                # 3D Pose Estimation (solvePnP)
+                                # Define 3D object points for the marker (centered at origin)
+                                hs = phys_size / 2.0
+                                obj_pts = np.array([
+                                    [-hs, hs, 0],
+                                    [hs, hs, 0],
+                                    [hs, -hs, 0],
+                                    [-hs, -hs, 0]
+                                ], dtype=np.float32)
                                 
-                                try:
-                                    if self.result_queue.full(): self.result_queue.get_nowait()
-                                    self.result_queue.put_nowait({
-                                        "type": "landmark",
-                                        "id": int(marker_id),
-                                        "dist": distance_mm,
-                                        "angle": angle_rel
-                                    })
-                                    logger.debug(f"Aruco detected: {marker_id} at {distance_mm:.1f}mm")
-                                except: pass
+                                # Default camera matrix for 320x240 (approximate)
+                                cam_matrix = np.array([
+                                    [300, 0, 160],
+                                    [0, 300, 120],
+                                    [0, 0, 1]
+                                ], dtype=np.float32)
+                                dist_coeffs = np.zeros((4,1))
+                                
+                                marker_corners_2d = corners[i][0].astype(np.float32)
+                                success, rvec, tvec = cv2.solvePnP(obj_pts, marker_corners_2d, cam_matrix, dist_coeffs)
+                                
+                                if success:
+                                    # distance is the norm of translation vector
+                                    distance_mm = np.linalg.norm(tvec)
+                                    
+                                    # relative angle (yaw) to marker center in camera frame
+                                    # tvec[0] is X (horizontal), tvec[2] is Z (depth)
+                                    angle_rel = math.atan2(tvec[0], tvec[2])
+                                    
+                                    # Experimental: Calculate marker's own rotation (yaw) relative to robot
+                                    # This helps in knowing if the robot is looking at the marker at an angle
+                                    rmat, _ = cv2.Rodrigues(rvec)
+                                    # Marker's yaw relative to camera
+                                    marker_yaw_rel = math.atan2(-rmat[0, 2], rmat[2, 2])
+                                    
+                                    try:
+                                        if self.result_queue.full(): self.result_queue.get_nowait()
+                                        self.result_queue.put_nowait({
+                                            "type": "landmark",
+                                            "id": int(marker_id),
+                                            "dist": distance_mm,
+                                            "angle": angle_rel,
+                                            "marker_yaw": marker_yaw_rel # Orientation of the marker itself
+                                        })
+                                        logger.debug(f"Aruco 3D: {marker_id} dist={distance_mm:.1f}mm angle={math.degrees(angle_rel):.1f}deg")
+                                    except: pass
 
                     # --- AI STEP 1: Gesture Recognition (MediaPipe Tasks API) ---
                     if do_ai and hand_landmarker is not None:
@@ -530,8 +580,13 @@ class VisionProcess(multiprocessing.Process):
 
                     # --- STREAMING STEP: Send frame to Web Server ---
                     if self.frame_queue is not None:
+                        # Update soft stab setting from shared flags if available
+                        soft_stab = self.software_stab
+                        if self.shared_flags:
+                            soft_stab = bool(self.shared_flags[1])
+
                         # --- DIGITAL IMAGE STABILIZATION (DIS) ---
-                        if self.software_stab and self.shared_imu:
+                        if soft_stab and self.shared_imu:
                             h, w = frame.shape[:2]
                             roll, pitch, yaw = self.shared_imu[0], self.shared_imu[1], self.shared_imu[2]
                             
@@ -555,13 +610,28 @@ class VisionProcess(multiprocessing.Process):
                             frame = cv2.resize(frame, (w, h))
 
                         # --- FINAL VISUALIZATION RENDERING (After Stabilization) ---
+                        # Update show_debug setting from shared flags if available
                         show_debug = self.config.get("system.show_vision_debug", True)
+                        if self.shared_flags:
+                            show_debug = bool(self.shared_flags[0])
+                        
                         h_draw, w_draw = frame.shape[:2]
                         
+                        # Displacement parameters for coordinate remapping
+                        remap_params = None
+                        if soft_stab and self.shared_imu:
+                            # scale factors for the resize back to (w, h)
+                            sw = w / (w - 2*cw)
+                            sh = h / (h - 2*ch)
+                            remap_params = (M_rot, cw, ch, sw, sh)
+
                         if show_debug:
                             # Draw Ball
                             if viz_state["ball"]:
                                 bx, by, br = viz_state["ball"]
+                                if remap_params:
+                                    bx, by = self.transform_coords(bx, by, *remap_params)
+                                    br *= remap_params[3] # Scale radius too
                                 cv2.circle(frame, (int(bx), int(by)), int(br), (0, 255, 0), 2)
                                 cv2.putText(frame, "Ball", (int(bx)-20, int(by)-int(br)-10), 
                                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
@@ -575,20 +645,90 @@ class VisionProcess(multiprocessing.Process):
                                 else:
                                     viz_state["gesture"] = None
                             
+                            # Draw Landmarks (Aruco - New Overlay)
+                            if viz_state["landmarks"]:
+                                ids_v, corners_v = viz_state["landmarks"]
+                                for i, marker_id in enumerate(ids_v.flatten()):
+                                    marker_corners_2d = corners_v[i][0]
+                                    pts = []
+                                    for corner in marker_corners_2d:
+                                        cx, cy = corner[0], corner[1]
+                                        if remap_params:
+                                            cx, cy = self.transform_coords(cx, cy, *remap_params)
+                                        pts.append((int(cx), int(cy)))
+                                    
+                                    # Draw square
+                                    for j in range(4):
+                                        cv2.line(frame, pts[j], pts[(j+1)%4], (255, 191, 0), 2)
+                                    
+                                    # Draw ID
+                                    cv2.putText(frame, f"ID:{marker_id}", (pts[0][0], pts[0][1]-10),
+                                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 191, 0), 2)
+                                    
+                                    # Draw 3D Axes
+                                    # hs already exists from detection block? No, it's not in scope here.
+                                    # We need to re-calculate hs or pass it. 
+                                    # Let's assume hs = phys_size/2.0
+                                    m_id_str = str(marker_id)
+                                    ps = 100.0
+                                    if m_id_str in self.config.get("mapping.markers", {}):
+                                        ps = self.config.get("mapping.markers", {})[m_id_str].get("size", 100.0)
+                                    hs = ps / 2.0
+                                    
+                                    # Re-calculate rvec/tvec for drawing (usually it's faster to cache them, 
+                                    # but we're in the viz block. Let's just draw 3 lines)
+                                    # To draw axes, we needcam_matrix. 
+                                    cam_matrix = np.array([[300, 0, 160],[0, 300, 120],[0, 0, 1]], dtype=np.float32)
+                                    dist_coeffs = np.zeros((4,1))
+                                    
+                                    # Define axis points in 3D
+                                    axis_len = hs * 1.5
+                                    axis_pts_3d = np.array([
+                                        [0, 0, 0],
+                                        [axis_len, 0, 0],  # X
+                                        [0, axis_len, 0],  # Y
+                                        [0, 0, -axis_len]   # Z (pointing towards camera from marker)
+                                    ], dtype=np.float32)
+                                    
+                                    # We need rvec and tvec from the detection step. 
+                                    # Since they are not cached in viz_state, let's re-run PnP for the viz
+                                    # Or better, I should have put them in a dict.
+                                    # For now, let's just project a simple 3D axis if we have corners.
+                                    obj_pts = np.array([[-hs, hs, 0],[hs, hs, 0],[hs, -hs, 0],[-hs, -hs, 0]], dtype=np.float32)
+                                    success, r, t = cv2.solvePnP(obj_pts, corners[i][0].astype(np.float32), cam_matrix, dist_coeffs)
+                                    if success:
+                                        imgpts, _ = cv2.projectPoints(axis_pts_3d, r, t, cam_matrix, dist_coeffs)
+                                        imgpts = imgpts.reshape(-1, 2)
+                                        
+                                        # Transform to stabilized frame
+                                        pts_2d = []
+                                        for pt in imgpts:
+                                            px, py = pt[0], pt[1]
+                                            if remap_params:
+                                                px, py = self.transform_coords(px, py, *remap_params)
+                                            pts_2d.append((int(px), int(py)))
+                                        
+                                        # Draw Axis lines: X=Red, Y=Green, Z=Blue
+                                        origin = pts_2d[0]
+                                        cv2.line(frame, origin, pts_2d[1], (0, 0, 255), 3) # X
+                                        cv2.line(frame, origin, pts_2d[2], (0, 255, 0), 3) # Y
+                                        cv2.line(frame, origin, pts_2d[3], (255, 0, 0), 3) # Z
+
                             # Draw Objects
                             for obj in viz_state["objects"]:
                                 ymin, xmin, ymax, xmax = obj["box"]
-                                left, top = int(xmin * w_draw), int(ymin * h_draw)
-                                right, bottom = int(xmax * w_draw), int(ymax * h_draw)
-                                cv2.rectangle(frame, (left, top), (right, bottom), obj["color"], 2)
+                                # Convert normalized to pixel
+                                left, top = xmin * w, ymin * h
+                                right, bottom = xmax * w, ymax * h
                                 
-                                # Use recognized identity if it's a person and we have one
-                                display_label = obj["label"]
-                                if obj["label"] == "PERSON" and self.current_identity:
-                                    display_label = self.current_identity.upper()
-                                    
-                                label_str = f"{display_label} {obj['dist']}mm"
-                                cv2.putText(frame, label_str, (left, top-10), 
+                                if remap_params:
+                                    left, top = self.transform_coords(left, top, *remap_params)
+                                    right, bottom = self.transform_coords(right, bottom, *remap_params)
+
+                                cv2.rectangle(frame, (int(left), int(top)), (int(right), int(bottom)), obj["color"], 2)
+                                
+                                label_str = f"{obj['label']} {obj['dist']}mm"
+                                cv2.putText(frame, label_str, (int(left), int(top)-10), 
                                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, obj["color"], 2)
                                             
                             # Heartbeat indicator

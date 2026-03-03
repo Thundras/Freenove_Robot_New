@@ -1,11 +1,13 @@
 import yaml
 import os
+import threading
 from typing import Any, Dict
 
 class ConfigManager:
     def __init__(self, config_path: str = "config/config.yaml"):
         self.config_path = config_path
         self._config: Dict[str, Any] = {}
+        self._lock = threading.Lock()
         self.load_config()
 
     def load_config(self):
@@ -27,20 +29,31 @@ class ConfigManager:
 
     def set(self, key: str, value: Any):
         """Update a config value in memory (supports dot notation)"""
-        keys = key.split(".")
-        d = self._config
-        for k in keys[:-1]:
-            if k not in d or not isinstance(d[k], dict):
-                d[k] = {}
-            d = d[k]
-        d[keys[-1]] = value
+        with self._lock:
+            keys = key.split(".")
+            d = self._config
+            for k in keys[:-1]:
+                if k not in d or not isinstance(d[k], dict):
+                    d[k] = {}
+                d = d[k]
+            d[keys[-1]] = value
 
     def save_config(self):
         """Persist current configuration to disk"""
-        try:
-            with open(self.config_path, "w") as f:
-                yaml.dump(self._config, f, default_flow_style=False, sort_keys=False)
-            return True
-        except Exception as e:
-            print(f"Error saving config: {e}")
-            return False
+        with self._lock:
+            try:
+                with open(self.config_path, "w") as f:
+                    yaml.dump(self._config, f, default_flow_style=False, sort_keys=False)
+                return True
+            except Exception as e:
+                print(f"Error saving config: {e}")
+                return False
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state['_lock']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._lock = threading.Lock()

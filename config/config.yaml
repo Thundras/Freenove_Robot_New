@@ -96,14 +96,21 @@ system:
   control_loop_hz: 100
   log_level: INFO
   simulation_mode: true
-  camera_stabilization: false
-  software_stabilization: true
-  stabilization_crop: 0.15
+  camera_stabilization: true
+  camera_stabilization_crop: 0.15
   vision_processing_skip: 2
   vision_fps_limit: 20
   gesture_trust_threshold: 0.1
   web_host: 0.0.0.0
   web_port: 5000
+  show_vision_debug: true
+  social_memory_min_exposure: 60
+  social_memory_max_age_hours: 2
+mapping:
+  markers:
+    '0':
+      size: 100.0
+      name: Ladestation (Base)
 mqtt:
   broker: localhost
   port: 1883

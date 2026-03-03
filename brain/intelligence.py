@@ -180,6 +180,20 @@ class SocialMemory:
             return True
         return False
 
+    def delete_face(self, face_id):
+        if face_id in self.faces:
+            del self.faces[face_id]
+            # Also delete image
+            static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "api", "static", "faces")
+            img_path = os.path.join(static_dir, f"{face_id}.jpg")
+            if os.path.exists(img_path):
+                try: os.remove(img_path)
+                except: pass
+            self.save()
+            logger.info(f"Face {face_id} deleted from memory.")
+            return True
+        return False
+
 class IntelligenceController:
     """
     Manages the robot's higher-level behavior tree and asynchronous vision pipeline.
@@ -218,13 +232,19 @@ class IntelligenceController:
         self.frame_queue = multiprocessing.Queue(maxsize=2)
         self.identity_queue = multiprocessing.Queue(maxsize=1) # Only latest identity
         self.shared_imu = multiprocessing.Array('d', [0.0, 0.0, 0.0]) # [Roll, Pitch, Yaw]
+        self.shared_flags = multiprocessing.Array('i', [0] * 10) # [show_debug, soft_stab, ...]
         
+        # Initialize flags from config
+        self.shared_flags[0] = 1 if config.get("system.show_vision_debug", True) else 0
+        self.shared_flags[1] = 1 if config.get("system.camera_stabilization", True) else 0
+
         self.vision = VisionProcess(
             self.result_queue, 
             self.frame_queue, 
             config, 
             shared_imu=self.shared_imu,
-            identity_queue=self.identity_queue
+            identity_queue=self.identity_queue,
+            shared_flags=self.shared_flags
         )
         
         # Stabilization state
@@ -337,7 +357,12 @@ class IntelligenceController:
                 
                 self.context["last_object_detection"] = data
             elif data.get("type") == "landmark":
-                self.mapping.add_landmark(data["id"], data["dist"], data["angle"])
+                self.mapping.add_landmark(
+                    data["id"], 
+                    data["dist"], 
+                    data["angle"],
+                    data.get("marker_yaw", 0.0)
+                )
             elif data.get("type") == "gesture":
                 self.context["last_gesture"] = data
             elif data.get("type") == "tilt_request":
@@ -368,11 +393,16 @@ class IntelligenceController:
                 # If we see an obstacle within 100cm, add it
                 if dist_cm < 100.0:
                     self.mapping.add_obstacle(dist_mm, 0.0)
-                
+                    
                 # If path is clear (e.g. > 20cm), clear points in front of us
                 if dist_cm > 20.0:
                     # Clear up to the measured distance (capped at 1000mm)
                     self.mapping.clear_path(min(dist_mm, 1000.0), 0.0)
+                
+        # --- Sync Config to Vision Flags ---
+        # Sync every tick (cheap) to ensure UI feels responsive
+        self.shared_flags[0] = 1 if self.config.get("system.show_vision_debug", True) else 0
+        self.shared_flags[1] = 1 if self.config.get("system.camera_stabilization", True) else 0
         
         # --- SLAM: Map Aging/Cleanup (Every 10 seconds) ---
         if now - getattr(self, "last_map_cleanup", 0) > 10.0:
@@ -393,6 +423,13 @@ class IntelligenceController:
                  self.identity_queue.put_nowait(None)
              except: pass
         
+        # --- Social Memory: Periodic Cleanup (Every hour) ---
+        if now - getattr(self, "last_memory_cleanup", 0) > 3600.0:
+            max_age = self.config.get("system.social_memory_max_age_hours", 2)
+            min_exp = self.config.get("system.social_memory_min_exposure", 60)
+            self.social_memory.cleanup_stale_faces(max_age_hours=max_age, min_exposure_seconds=min_exp)
+            self.last_memory_cleanup = now
+        
         # Mode Change Detection & Logging
         current_mode = self.context.get("system_mode")
         if not hasattr(self, "_last_mode_logged") or self._last_mode_logged != current_mode:
@@ -409,9 +446,9 @@ class IntelligenceController:
         if self.sensors and "imu" in self.sensors:
             imu_data = self.sensors["imu"].get_data()
             if imu_data:
-                self.shared_imu[0] = imu_data.roll
-                self.shared_imu[1] = imu_data.pitch
-                self.shared_imu[2] = imu_data.yaw
+                self.shared_imu[0] = getattr(imu_data, "roll", 0.0)
+                self.shared_imu[1] = getattr(imu_data, "pitch", 0.0)
+                self.shared_imu[2] = getattr(imu_data, "yaw", 0.0)
                 
                 # Apply Mechanical Stabilization (100Hz sync)
                 if self.servo_ctrl and self.mech_stab_enabled:

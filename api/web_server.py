@@ -154,6 +154,15 @@ class WebServer:
                     return jsonify({"status": "ok"})
                 return jsonify({"status": "error", "message": "Face ID not found"}), 404
             return jsonify({"status": "error", "message": "Intelligence not ready"}), 503
+            
+        @self.app.route('/api/faces/<fid>', methods=['DELETE'])
+        def delete_face(fid):
+            if self.intelligence and hasattr(self.intelligence, "social_memory"):
+                success = self.intelligence.social_memory.delete_face(fid)
+                if success:
+                    return jsonify({"status": "ok"})
+                return jsonify({"status": "error", "message": "Face ID not found"}), 404
+            return jsonify({"status": "error", "message": "Intelligence not ready"}), 503
 
         @self.app.route('/api/map', methods=['GET'])
         def get_map():
@@ -168,6 +177,37 @@ class WebServer:
                     "landmarks": m.landmarks
                 })
             return jsonify({})
+
+        @self.app.route('/api/markers', methods=['GET'])
+        def get_markers():
+            return jsonify(self.config.get("mapping.markers", {}))
+
+        @self.app.route('/api/markers', methods=['POST'])
+        def update_marker():
+            data = request.json
+            if not data or "id" not in data or "size" not in data:
+                return jsonify({"status": "error", "message": "Missing id or size"}), 400
+            
+            markers = self.config.get("mapping.markers", {})
+            markers[str(data["id"])] = {
+                "size": float(data["size"]),
+                "name": data.get("name", f"Marker {data['id']}")
+            }
+            self.config.set("mapping.markers", markers)
+            if self.config.save_config():
+                return jsonify({"status": "ok"})
+            return jsonify({"status": "error", "message": "Failed to save config"}), 500
+
+        @self.app.route('/api/markers/<mid>', methods=['DELETE'])
+        def delete_marker(mid):
+            markers = self.config.get("mapping.markers", {})
+            if str(mid) in markers:
+                del markers[str(mid)]
+                self.config.set("mapping.markers", markers)
+                if self.config.save_config():
+                    return jsonify({"status": "ok"})
+                return jsonify({"status": "error", "message": "Failed to save config"}), 500
+            return jsonify({"status": "error", "message": "Marker not found"}), 404
 
     def run(self):
         host = self.config.get("system.web_host", "0.0.0.0")
