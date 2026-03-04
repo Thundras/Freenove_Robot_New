@@ -6,7 +6,7 @@ from utils.config import ConfigManager
 logger = logging.getLogger(__name__)
 
 class WebServer:
-    def __init__(self, config: ConfigManager, movement_engine=None, intelligence=None):
+    def __init__(self, config: ConfigManager, movement_engine=None, intelligence=None, servo_ctrl=None):
         self.app = Flask(__name__)
         # Silence Flask & Werkzeug access logs completely
         import logging as py_logging
@@ -16,6 +16,7 @@ class WebServer:
         self.config = config
         self.movement = movement_engine
         self.intelligence = intelligence
+        self.servo_ctrl = servo_ctrl
         self.setup_routes()
 
     def setup_routes(self):
@@ -43,6 +44,18 @@ class WebServer:
                 return jsonify({"status": "ok"})
             else:
                 return jsonify({"status": "error", "message": "Failed to save config"}), 500
+
+        @self.app.route('/api/servos', methods=['GET'])
+        def get_servos():
+            try:
+                if self.servo_ctrl:
+                    # Return a copy to avoid thread-safety issues during JSON serialization
+                    data = dict(self.servo_ctrl.get_servos())
+                    return jsonify(data)
+                return jsonify({})
+            except Exception as e:
+                logger.error(f"Error in /api/servos: {e}", exc_info=True)
+                return jsonify({"status": "error", "message": str(e)}), 500
 
         @self.app.route('/api/command/<cmd>', methods=['POST'])
         def handle_command(cmd):

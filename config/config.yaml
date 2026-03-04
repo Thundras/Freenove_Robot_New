@@ -12,7 +12,7 @@ servos:
   leg_fl:
     coxa:
       channel: 0
-      middle: 90
+      middle: 45
       min: 20
       max: 160
       inverted: false
@@ -31,19 +31,19 @@ servos:
   leg_fr:
     coxa:
       channel: 3
-      middle: 90
+      middle: 135
       min: 20
       max: 160
       inverted: true
     femur:
       channel: 4
-      middle: 90
+      middle: 45
       min: 20
       max: 160
       inverted: true
     tibia:
       channel: 5
-      middle: 90
+      middle: 135
       min: 20
       max: 160
       inverted: true
@@ -75,7 +75,7 @@ servos:
       inverted: true
     femur:
       channel: 10
-      middle: 90
+      middle: 135
       min: 20
       max: 160
       inverted: true
@@ -88,7 +88,7 @@ servos:
   camera:
     tilt:
       channel: 14
-      middle: 90
+      middle: 135
       min: 45
       max: 135
       inverted: false
@@ -98,7 +98,7 @@ system:
   simulation_mode: true
   camera_stabilization: true
   camera_stabilization_crop: 0.15
-  vision_processing_skip: 2
+  vision_processing_skip: 10
   vision_fps_limit: 20
   gesture_trust_threshold: 0.1
   web_host: 0.0.0.0

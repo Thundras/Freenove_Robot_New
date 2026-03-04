@@ -1,30 +1,76 @@
 import time
 import logging
 from typing import Optional, List, Dict, Any
+from utils.config import ConfigManager
 from .base import IServoController, ISensor, SensorData, IMUData, BatteryStatus
 
 logger = logging.getLogger(__name__)
 
 class MockServoController(IServoController):
-    def __init__(self):
-        self.angles: Dict[int, float] = {}
+    def __init__(self, config: Optional[ConfigManager] = None):
+        self.config = config
+        self.angles: Dict[str, Any] = {}
         logger.debug("MockServoController initialized")
 
     def set_angle(self, channel: int, angle: float) -> None:
-        self.angles[channel] = angle
+        self.angles[str(channel)] = angle
         
     def update_poses(self, poses: Dict[str, Any], ik_engine: Any) -> None:
-        """Mock: Just calculate angles but don't move anything"""
-        for leg, coords in poses.items():
+        """Mock: Calculate angles respecting config (inversion/middle/clamp)"""
+        for leg_prefix, coords in poses.items():
+            # config key is e.g. servos.leg_fl
+            leg_cfg = None
+            if self.config:
+                leg_cfg = self.config.get(f"servos.leg_{leg_prefix}")
+            
             x, y, z = coords
             try:
-                ik_engine.calculate_angles(x, y, z)
-            except:
-                pass
+                angles = ik_engine.calculate_angles(x, y, z)
+                
+                # Mapping: Coxa/Femur/Tibia
+                for part in ["coxa", "femur", "tibia"]:
+                    angle_ik = getattr(angles, part)
+                    
+                    # Default if no config
+                    middle = 90
+                    inverted = False
+                    p_min = 20
+                    p_max = 160
+                    
+                    if leg_cfg and part in leg_cfg:
+                        p_cfg = leg_cfg[part]
+                        middle = p_cfg.get("middle", 90)
+                        inverted = p_cfg.get("inverted", False)
+                        p_min = p_cfg.get("min", 20)
+                        p_max = p_cfg.get("max", 160)
+                    
+                    # All joints now use 90 as the neutral midpoint in our IK
+                    neutral = 90
+                    delta = angle_ik - neutral
+
+                    # Apply inversion
+                    if inverted:
+                        delta = -delta
+                        
+                    # Final angle = middle + delta
+                    final_angle = middle + delta
+                    
+                    # Clamp to limits
+                    final_angle = max(p_min, min(p_max, final_angle))
+                    
+                    self.angles[f"{leg_prefix}_{part}"] = {
+                        "angle": final_angle,
+                        "channel": -1
+                    }
+            except Exception as e:
+                logger.debug(f"Mock IK Error for leg {leg_prefix}: {e}")
 
     def release_all(self) -> None:
         logger.info("Mock: All servos released")
         self.angles.clear()
+
+    def get_servos(self) -> Dict[str, Any]:
+        return self.angles
 
 class MockIMU(ISensor):
     def __init__(self):

@@ -82,7 +82,7 @@ def main():
     
     # 3. API & Connectivity
     ha = HAConnectivity(config, movement=gait, intelligence=intelligence)
-    web = WebServer(config, movement_engine=gait, intelligence=intelligence)
+    web = WebServer(config, movement_engine=gait, intelligence=intelligence, servo_ctrl=servo_ctrl)
     
     # Start background components
     ha.connect()
@@ -138,8 +138,13 @@ def main():
                     }
                     ha.publish_state("env_map", map_data)
             
-            # --- SLEEP ---
+            # --- PERFORMANCE MONITORING ---
             elapsed = time.perf_counter() - start_time
+            if int(time.time()) % 5 == 0: # Every 5 seconds
+                if not hasattr(main, "_last_perf_log") or main._last_perf_log != int(time.time()):
+                    logger.info(f"[PERF] Loop frequency: {1.0/max(0.0001, elapsed):.1f} Hz | Work time: {elapsed*1000:.2f} ms")
+                    main._last_perf_log = int(time.time())
+            
             sleep_time = max(0, dt - elapsed)
             time.sleep(sleep_time)
             

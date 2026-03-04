@@ -3,9 +3,10 @@ import time
 from typing import Dict, Tuple, List
 
 class LegOscillator:
-    def __init__(self, phase_offset: float = 0.0):
+    def __init__(self, phase_offset: float = 0.0, base_z: float = 23.0):
         self.phase = phase_offset
         self.phase_offset = phase_offset
+        self.base_z = base_z
         self.idle_offset_x = 0.0
         self.idle_offset_y = 0.0
         self.idle_offset_z = 0.0
@@ -32,7 +33,7 @@ class LegOscillator:
         """Calculate local (x, y, z) for the leg tip based on phase."""
         x = self.idle_offset_x
         y = base_y + self.idle_offset_y
-        z = self.idle_offset_z
+        z = self.base_z + self.idle_offset_z
         
         # Normalized phase within the semi-cycle
         if self.phase < 0.5:
@@ -112,6 +113,26 @@ class GaitSequencer:
         elif p == "playful":
             self.pose_offset = 15.0
             self.rear_pose_offset = -15.0
+        elif p == "calibrate":
+            self.pose_offset = 43.0 # y=133 (90 + 23 shoulder + 20) ? No, let's just use max reach
+            self.rear_pose_offset = 43.0
+            self.current_speed = 0.0
+            self.target_speed = 0.0
+            # Zero out step length/height for true straight stand
+            self.step_length = 0.0
+            self.step_height = 0.0
+            # Reset phases and idle offsets
+            for name, osc in self.oscillators.items():
+                osc.phase = 0.5 
+                osc.idle_offset_x = 0.0
+                osc.idle_offset_y = 0.0
+                osc.idle_offset_z = 0.0
+                # CRITICAL: For calibration, we want Z = 0 (vertical shoulder)
+                osc.base_z = 0.0 
+        else:
+            # Restore default base_z for other poses
+            for osc in self.oscillators.values():
+                osc.base_z = 23.0
 
     def set_target_speed(self, speed: float, turn: float = 0.0):
         self.target_speed = speed
@@ -128,7 +149,7 @@ class GaitSequencer:
         t = time.time()
         for i, (name, osc) in enumerate(self.oscillators.items()):
             osc.update(dt, self.current_speed)
-            if self.current_speed < 0.01:
+            if self.current_speed < 0.01 and self.current_pose != "calibrate":
                 osc.update_idle(t, i)
             else:
                 osc.idle_offset_x = 0.0

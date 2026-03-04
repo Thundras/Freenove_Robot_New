@@ -35,6 +35,11 @@ class IServoController(ABC):
         """Relax all servos (stop PWM)"""
         pass
 
+    @abstractmethod
+    def get_servos(self) -> Dict[str, Any]:
+        """Return the current state/angles of all servos"""
+        pass
+
 class ISensor(ABC):
     """Interface for all sensors (IMU, Ultrasonic, etc.)"""
     @abstractmethod

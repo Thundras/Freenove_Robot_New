@@ -24,6 +24,7 @@ class PCA9685Driver(IServoController):
         if board is None:
             raise ImportError("Adafruit libraries not found. Use simulation mode.")
 
+        self.current_angles = {} # Store for live visualization
         try:
             self.i2c = busio.I2C(board.SCL, board.SDA)
             self.pca = PCA9685(self.i2c, address=self.address)
@@ -53,18 +54,29 @@ class PCA9685Driver(IServoController):
                     for part in ["coxa", "femur", "tibia"]:
                         p_cfg = leg_cfg.get(part)
                         if p_cfg:
-                            angle = getattr(angles, part)
+                            angle_ik = getattr(angles, part)
+                            
+                            # All joints now use 90 as the neutral midpoint in our IK
+                            neutral = 90
+                            delta = angle_ik - neutral
+                            
                             # Apply inversion if specified
                             if p_cfg.get("inverted", False):
-                                angle = -angle
+                                delta = -delta
                             
-                            # Final angle = middle + calculated_ik
-                            final_angle = p_cfg.get("middle", 90) + angle
+                            # Final angle = middle + delta
+                            final_angle = p_cfg.get("middle", 90) + delta
                             
                             # Clamp to limits
                             final_angle = max(p_cfg.get("min", 20), min(p_cfg.get("max", 160), final_angle))
                             
                             self.set_angle(p_cfg.get("channel"), final_angle)
+                            
+                            # Store for visualization (global servo state)
+                            self.current_angles[f"{leg_prefix}_{part}"] = {
+                                "angle": final_angle,
+                                "channel": p_cfg.get("channel")
+                            }
                             
                 except Exception as e:
                     logger.debug(f"IK Error for leg {leg_prefix}: {e}")
@@ -72,4 +84,8 @@ class PCA9685Driver(IServoController):
     def release_all(self) -> None:
         for i in range(16):
             self.pca.channels[i].duty_cycle = 0
+        self.current_angles.clear()
         logger.info("All servos released (PWM disabled)")
+
+    def get_servos(self) -> Dict[str, Any]:
+        return self.current_angles

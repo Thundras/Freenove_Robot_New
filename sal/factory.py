@@ -10,14 +10,14 @@ class SalFactory:
     def get_servo_controller(config: ConfigManager) -> IServoController:
         sim_mode = config.get("system.simulation_mode", True)
         if sim_mode:
-            return MockServoController()
+            return MockServoController(config)
         
         try:
             from .pca9685_driver import PCA9685Driver
             return PCA9685Driver(config)
         except ImportError:
             logger.error("Could not import PCA9685Driver. Falling back to Mock.")
-            return MockServoController()
+            return MockServoController(config)
 
     @staticmethod
     def get_imu(config: ConfigManager) -> ISensor:
