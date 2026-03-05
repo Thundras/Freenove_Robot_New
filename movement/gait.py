@@ -174,18 +174,36 @@ class GaitSequencer:
         else:
             if self.current_gait != "trot": self._apply_gait("trot")
 
-        # 3. Update Body Pose Smoothing
+        # 3. Update Body Pose Smoothing (Organic S-Curve)
         for key in self.current_body_pose:
             target = self.target_body_pose[key]
             current = self.current_body_pose[key]
-            if abs(current - target) > 0.1:
-                step = self.smoothing_speed * dt * 20.0 # Scale for mm/deg
-                if key in ["roll", "pitch", "yaw"]: step = self.smoothing_speed * 10 * dt
+            
+            diff = target - current
+            if abs(diff) > 0.01:
+                # Calculate dynamic step based on distance (S-Curve feel)
+                # Faster in the middle, slower at the ends
+                # We use a simple adaptive speed: speed = base_speed * sin(progress)
+                # But for dynamic targets, we can use: speed_mod = max(0.1, sin(min(progress, pi)))
                 
-                if current < target:
-                    self.current_body_pose[key] = min(target, current + step)
+                # Base step size
+                base_step = self.smoothing_speed * dt * 25.0
+                if key in ["roll", "pitch", "yaw"]: 
+                    base_step = self.smoothing_speed * 15.0 * dt
+                
+                # Apply organic scaling: If we are close, slow down (Ease-out)
+                # If we just started, we would need to know the start point.
+                # Alternative: Use a fraction of the distance but capped by max speed
+                dist_factor = min(1.0, abs(diff) / 10.0) # Scale down if less than 10 units away
+                if key in ["roll", "pitch", "yaw"]: dist_factor = min(1.0, abs(diff) / 5.0)
+                
+                # Ease-in/out simulation via distance-based velocity
+                actual_step = base_step * (0.2 + 0.8 * math.sin(dist_factor * math.pi / 2))
+                
+                if abs(diff) < actual_step:
+                    self.current_body_pose[key] = target
                 else:
-                    self.current_body_pose[key] = max(target, current - step)
+                    self.current_body_pose[key] += math.copysign(actual_step, diff)
             else:
                 self.current_body_pose[key] = target
 
