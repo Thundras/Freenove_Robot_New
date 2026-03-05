@@ -20,7 +20,8 @@ pip install -r requirements.txt --user
 **Wichtige Versionen (Windows Fix):**
 *   `numpy==1.26.4` (Verhindert "Numpy 2.0" Inkompatibilität mit MediaPipe)
 *   `mediapipe==0.10.32` (Modernes Tasks API Bundle)
-*   `protobuf==6.33.5` (Zwingend erforderlich für moderne TF/MediaPipe Kombinationen)
+*   `protobuf==4.25.8` (Zwingend erforderlich für moderne TF/MediaPipe Kombinationen)
+*   `adafruit-circuitpython-mpu6050` (Neu hinzugefügt für IMU-Support)
 
 ## 3. Modelle & Ressourcen
 

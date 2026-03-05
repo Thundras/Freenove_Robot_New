@@ -23,7 +23,9 @@ sudo apt-get install -y \
     libv4l-dev \
     i2c-tools \
     libatlas-base-dev \
-    libopenblas-dev
+    libopenblas-dev \
+    libcamera-dev \
+    pkg-config
 
 # 3. Enable Hardware Interfaces
 echo "⚙️ Enabling I2C and Camera..."
