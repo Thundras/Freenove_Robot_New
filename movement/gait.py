@@ -77,6 +77,8 @@ class GaitSequencer:
         # 6-DOF Body State (Target vs Current for smoothing)
         self.target_body_pose = {"roll": 0.0, "pitch": 0.0, "yaw": 0.0, "x": 0.0, "y": 0.0, "z": 0.0}
         self.current_body_pose = {"roll": 0.0, "pitch": 0.0, "yaw": 0.0, "x": 0.0, "y": 0.0, "z": 0.0}
+        self.auto_com_x = 0.0 # Automatic CoM shift (Pitch)
+        self.auto_com_z = 0.0 # Automatic CoM shift (Roll)
         self.smoothing_speed = 3.0 # Rad or mm per second
         
         self.step_length = 40.0
@@ -209,6 +211,16 @@ class GaitSequencer:
 
         # 3. Update Oscillators
         t = time.time()
+        
+        # 4. Automatic CoM (Center of Mass) Compensation (X and Z)
+        # Pitch -> X shift, Roll -> Z shift
+        pitch_rad = math.radians(self.current_body_pose["pitch"])
+        roll_rad = math.radians(self.current_body_pose["roll"])
+        
+        # We use a tunable factor (0.8) for stability
+        self.auto_com_x = math.sin(pitch_rad) * self.base_height * 0.8
+        self.auto_com_z = -math.sin(roll_rad) * self.base_height * 0.8 # Counter-shift roll
+        
         for i, (name, osc) in enumerate(self.oscillators.items()):
             osc.update(dt, self.current_speed)
             if self.current_speed < 0.01 and self.current_pose != "calibrate":
@@ -231,9 +243,9 @@ class GaitSequencer:
         p = math.radians(self.current_body_pose["pitch"])
         y = math.radians(self.current_body_pose["yaw"])
         
-        off_x = self.current_body_pose["x"]
+        off_x = self.current_body_pose["x"] + self.auto_com_x
         off_y = self.current_body_pose["y"]
-        off_z = self.current_body_pose["z"]
+        off_z = self.current_body_pose["z"] + self.auto_com_z
 
         # Rotation Matrices
         # Rx (Roll) around X
