@@ -79,6 +79,9 @@ class GaitSequencer:
         self.current_body_pose = {"roll": 0.0, "pitch": 0.0, "yaw": 0.0, "x": 0.0, "y": 0.0, "z": 0.0}
         self.auto_com_x = 0.0 # Automatic CoM shift (Pitch)
         self.auto_com_z = 0.0 # Automatic CoM shift (Roll)
+        self.auto_lean = 0.0 # Lean into turn (Roll)
+        self.look_at_yaw = 0.0 # Body gaze offset
+        self.look_at_pitch = 0.0 # Body gaze offset
         self.stab_roll = 0.0 # IMU Stabilization Offset
         self.stab_pitch = 0.0 # IMU Stabilization Offset
         self.smoothing_speed = 3.0 # Rad or mm per second
@@ -162,6 +165,11 @@ class GaitSequencer:
         if key in self.target_body_pose:
             self.target_body_pose[key] = value
 
+    def set_look_at(self, yaw: float, pitch: float):
+        """Sets expressive body gaze offsets (additive)"""
+        self.look_at_yaw = yaw
+        self.look_at_pitch = pitch
+
     def set_stabilization(self, roll: float, pitch: float):
         """Directly sets high-frequency stabilization offsets (additive, no smoothing)"""
         self.stab_roll = roll
@@ -221,8 +229,13 @@ class GaitSequencer:
         
         # 4. Automatic CoM (Center of Mass) Compensation (X and Z)
         # Pitch -> X shift, Roll -> Z shift
-        pitch_rad = math.radians(self.current_body_pose["pitch"])
-        roll_rad = math.radians(self.current_body_pose["roll"])
+        # We include look-at offsets for more accurate compensation
+        pitch_rad = math.radians(self.current_body_pose["pitch"] + self.look_at_pitch)
+        roll_rad = math.radians(self.current_body_pose["roll"] + self.look_at_yaw)
+        
+        # 5. Lean into turn (Organic)
+        # Tilts the body slightly in the direction of the turn
+        self.auto_lean = self.turn_rate * -10.0 # Max 10 deg lean
         
         # We use a tunable factor (0.8) for stability
         self.auto_com_x = math.sin(pitch_rad) * self.base_height * 0.8
@@ -245,10 +258,10 @@ class GaitSequencer:
         coords = {}
         
         # 1. Gather Current Pose (Rotation Degrees -> Radians)
-        # Combine intent-based smoothed pose with high-speed stabilization
-        r = math.radians(self.current_body_pose["roll"] + self.stab_roll)
-        p = math.radians(self.current_body_pose["pitch"] + self.stab_pitch)
-        y = math.radians(self.current_body_pose["yaw"])
+        # Combine intent-based smoothed pose with high-speed stabilization and refinements
+        r = math.radians(self.current_body_pose["roll"] + self.stab_roll + self.auto_lean)
+        p = math.radians(self.current_body_pose["pitch"] + self.stab_pitch + self.look_at_pitch)
+        y = math.radians(self.current_body_pose["yaw"] + self.look_at_yaw)
         
         off_x = self.current_body_pose["x"] + self.auto_com_x
         off_y = self.current_body_pose["y"]

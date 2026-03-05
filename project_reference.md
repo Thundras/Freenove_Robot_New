@@ -43,6 +43,9 @@ Measurements are in **millimeters (mm)**.
 - **Motion Blending**: ~~All pose and speed targets are ramped (MM/Deg per sec) for fluid motion.~~ All pose targets use **Organic S-Curve Smoothing** (Ease-in/out). Speed scales sinusoidally based on distance to target, preventing mechanical jerk.
 - **Automatic CoM Shift**: ~~The trunk dynamically compensates for pitch angles to maintain static stability. Shift: `X_offset = height * sin(pitch) * 0.8`.~~ => The trunk dynamically compensates in 2D (X and Z) to maintain static stability. Pitch shift: `X = height * sin(pitch) * 0.8`. Roll shift: `Z = -height * sin(roll) * 0.8`.
 - **IMU Auto-Leveling (Body Gimbal)**: A reactive behavior node (`AutoLevel`) applies counter-rotations to the trunk based on MPU6050 data, keeping the body level regardless of terrain slope.
+- **Organic Refinements (Phase 4)**:
+  - **Auto-Lean**: Body rolls into turns (`Lean = -TurnRate * 10°`) for a more dynamic, "leaning" look.
+  - **Expressive Body Gaze**: Behaviors can use `set_look_at(yaw, pitch)` to peer at targets using the 6-DOF trunk, complementing head movements for deeper "presence".
 - **Gaits**: 
   - **Walk**: 4-beat stable gait (FL:0.0, FR:0.5, RL:0.75, RR:0.25).
   - **Trot**: 2-beat diagonal gait (FL:0.0, FR:0.5, RL:0.5, RR:0.0).

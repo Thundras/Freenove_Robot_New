@@ -12,6 +12,7 @@ class FollowPerson(Leaf):
     def run(self) -> bool:
         # Pillar 3 Enhancement: Only follow if mode is 'follow'
         if self.context.get("system_mode") != "follow":
+            self.context["gait"].set_look_at(0.0, 0.0)
             # Mandatory state clearing
             if "led" in self.context["sensors"]:
                 self.context["sensors"]["led"].clear()
@@ -47,11 +48,16 @@ class FollowPerson(Leaf):
             else:
                 self.context["gait"].set_target_speed(0.0, turn_rate)
             
-            # Person Detection Feedback (Blue Breathing)
-            if "led" in self.context["sensors"]:
-                self.context["sensors"]["led"].animate("breathe", (0, 0, 255), speed=1.0)
-                
+            # --- EXPRESSIVE BODY GAZE ---
+            # Use body yaw to "peer" towards the person
+            body_yaw = error_x * 15.0 # Up to 15 degrees body yaw 
+            body_pitch = (center_y - 0.5) * 10.0 # Lean body up/down
+            self.context["gait"].set_look_at(body_yaw, body_pitch)
+            
             return True
+        
+        # Reset look-at if person lost
+        self.context["gait"].set_look_at(0.0, 0.0)
         return False
 
 class ReactToPerson(Leaf):
@@ -325,6 +331,8 @@ class DogSocialInteraction(Leaf):
                 # Only clear if we were the one who set it (heuristic)
                 # For now, just clear to be safe
                 self.context["sensors"]["led"].clear()
+            # Reset look-at if dog lost
+            self.context["gait"].set_look_at(0.0, 0.0)
             return False
 
         interest = detection.get("interest", "unknown")
@@ -341,6 +349,11 @@ class DogSocialInteraction(Leaf):
         if abs(error_y) > 0.05:
             current_tilt = self.context.get("target_tilt", 90)
             self.context["target_tilt"] = current_tilt + (error_y * 10.0)
+
+        # --- EXPRESSIVE BODY GAZE ---
+        body_yaw = error_x * 12.0 # Subtler than person following
+        body_pitch = error_y * 8.0
+        self.context["gait"].set_look_at(body_yaw, body_pitch)
 
         if interest == "low":
             logger.info("Social: Other dog seems uninterested. Staying passive.")
@@ -388,6 +401,11 @@ class PlayWithBall(Leaf):
             if abs(error_y) > 0.05:
                 current_tilt = self.context.get("target_tilt", 90)
                 self.context["target_tilt"] = current_tilt + (error_y * 12.0)
+
+            # --- EXPRESSIVE BODY GAZE ---
+            body_yaw = error_x * 15.0
+            body_pitch = error_y * 10.0
+            self.context["gait"].set_look_at(body_yaw, body_pitch)
 
             if interest < 0.4:
                 # Passive Interest: Just watch with the head, don't move
@@ -441,6 +459,9 @@ class PlayWithBall(Leaf):
         if "led" in self.context["sensors"]:
             self.context["sensors"]["led"].clear()
             
+        # Reset look-at if ball lost
+        self.context["gait"].set_look_at(0.0, 0.0)
+            
         # Reset pose if ball lost and in autonomous/follow
         if self.context.get("system_mode") in ["autonomous", "follow"]:
             self.context["gait"].set_pose("normal")
@@ -460,6 +481,7 @@ class ReactToFace(Leaf):
 
     def run(self) -> bool:
         if self.context.get("system_mode") not in ["autonomous", "follow"]:
+            self.context["gait"].set_look_at(0.0, 0.0)
             return False
             
         detection = self.context.get("last_object_detection")
@@ -475,6 +497,13 @@ class ReactToFace(Leaf):
         # Centering logic (Proportional)
         error_x = center_x - 0.5
         turn_rate = error_x * 1.5
+        
+        # --- EXPRESSIVE BODY GAZE ---
+        center_y = detection.get("center_y", 0.5)
+        error_y = center_y - 0.5
+        body_yaw = error_x * 15.0
+        body_pitch = error_y * 10.0
+        self.context["gait"].set_look_at(body_yaw, body_pitch)
         
         # Case 1: STRANGER (Caution)
         if trust < 0.3:
@@ -516,6 +545,8 @@ class ReactToFace(Leaf):
                 self.context["gait"].set_target_speed(0.0, turn_rate)
             return True
 
+        # Reset look-at if person lost
+        self.context["gait"].set_look_at(0.0, 0.0)
         return False
 
 class SecurityMonitor(Leaf):
@@ -525,6 +556,7 @@ class SecurityMonitor(Leaf):
 
     def run(self) -> bool:
         if self.context.get("system_mode") != "alarm":
+            self.context["gait"].set_look_at(0.0, 0.0)
             return False
 
         # Intruder alert: Always adopt aggressive posture in alarm mode
@@ -536,7 +568,15 @@ class SecurityMonitor(Leaf):
             center_x = detection.get("center_x", 0.5)
 
             # Centering logic (Intruder Pursuit)
-            turn_rate = 0.0
+            error_x = center_x - 0.5
+            turn_rate = error_x * 2.0 # More aggressive turning
+            
+            # --- AGGRESSIVE BODY GAZE ---
+            center_y = detection.get("center_y", 0.5)
+            error_y = center_y - 0.5
+            body_yaw = error_x * 20.0 # Wide aggressive gaze
+            body_pitch = error_y * 15.0
+            self.context["gait"].set_look_at(body_yaw, body_pitch)
             if center_x < 0.35:
                 turn_rate = -0.5
             elif center_x > 0.65:
@@ -578,8 +618,10 @@ class AmbientLook(Leaf):
     def run(self) -> bool:
         # Only look around if in autonomous and not busy with objects
         if self.context.get("system_mode") != "autonomous":
+            self.context["gait"].set_look_at(0.0, 0.0)
             return False
         if self.context.get("last_object_detection"):
+            # Don't reset here, let the other behavior handle it or keep it for interest
             return False
             
         now = time.time()
@@ -595,6 +637,10 @@ class AmbientLook(Leaf):
         if abs(current - self.target) > 1:
             step = 1 if self.target > current else -1
             self.context["target_tilt"] = current + step
+            
+            # Add subtle body yaw "peek" synced with head
+            peek_yaw = (current - 90) * 0.2 # 20% of head tilt
+            self.context["gait"].set_look_at(peek_yaw, 0.0)
             
         return False # Return false to allow other low-prio behaviors to run (like Idle)
 class ExpressMood(Leaf):
