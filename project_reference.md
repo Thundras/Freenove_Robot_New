@@ -39,7 +39,7 @@ Measurements are in **millimeters (mm)**.
 
 ## 3. Movement & Gait Control
 - **6-DOF Control**: Body can translate (x,y,z) and rotate (roll,pitch,yaw). Order: Yaw -> Pitch -> Roll.
-- **Motion Blending**: All pose targets use **Organic S-Curve Smoothing** (Ease-in/out). Speed scales sinusoidally based on distance to target, preventing mechanical jerk.
+- **Motion Blending**: ~~All pose and speed targets are ramped (MM/Deg per sec) for fluid motion.~~ All pose targets use **Organic S-Curve Smoothing** (Ease-in/out). Speed scales sinusoidally based on distance to target, preventing mechanical jerk.
 - **Gaits**: 
   - **Walk**: 4-beat stable gait (FL:0.0, FR:0.5, RL:0.75, RR:0.25).
   - **Trot**: 2-beat diagonal gait (FL:0.0, FR:0.5, RL:0.5, RR:0.0).
