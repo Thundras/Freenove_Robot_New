@@ -613,6 +613,60 @@
         .viz-container.view-front {
             transform: rotateX(0deg) rotateY(0deg);
         }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(59, 130, 246, 0.9);
+            backdrop-filter: blur(8px);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .toast.active {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .mini-input {
+            width: 70px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #ffffff;
+            padding: 6px 4px;
+            font-size: 0.95rem;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .mini-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+        }
+
+        .calibration-table th {
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+
+        .calibration-table td {
+            vertical-align: middle;
+        }
     </style>
 </head>
 
@@ -670,11 +724,62 @@
             <section class='card'>
                 <h2>📊 Status & Mode</h2>
                 <div class='setting-item'>
-                    <label>Gangart (Gait)</label>
-                    <select id="gait-select" onchange="changeGait(this.value)">
-                        <option value="trot">Trab (Trot)</option>
-                        <option value="walk">Schritt (Walk)</option>
-                    </select>
+                    <label>Übertragungsgeschwindigkeit (Gait Speed)</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="range" min="0" max="100" value="0" id="speed-slider" style="flex: 1;"
+                            oninput="updateSpeed(this.value)">
+                        <span id="speed-val" style="font-size: 0.8rem; color: var(--accent); width: 40px;">0%</span>
+                    </div>
+                </div>
+                <div class='setting-item' id="gait-display-item">
+                    <label>Aktuelle Gangart (Auto-Gait)</label>
+                    <div class="gait-display" id="gait-view"
+                        style="font-size: 0.8rem; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 4px;">
+                        Status: <b id="current-gait-label" style="color: var(--accent);">Idle</b>
+                    </div>
+                </div>
+
+                <div class='setting-item'>
+                    <label>Stimmung (Mood / Biology)</label>
+                    <div class="mood-container"
+                        style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+                        <div class="mood-bar-wrapper">
+                            <div
+                                style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
+                                <span>Energie</span> <span id="mood-energy-pct">100%</span>
+                            </div>
+                            <div
+                                style="background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; overflow: hidden;">
+                                <div id="mood-energy-bar"
+                                    style="width: 100%; height: 100%; background: #10b981; transition: width 0.5s;">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mood-bar-wrapper">
+                            <div
+                                style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
+                                <span>Aufregung</span> <span id="mood-excitement-pct">50%</span>
+                            </div>
+                            <div
+                                style="background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; overflow: hidden;">
+                                <div id="mood-excitement-bar"
+                                    style="width: 50%; height: 100%; background: #3b82f6; transition: width 0.5s;">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mood-bar-wrapper">
+                            <div
+                                style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
+                                <span>Vertrauen</span> <span id="mood-comfort-pct">80%</span>
+                            </div>
+                            <div
+                                style="background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; overflow: hidden;">
+                                <div id="mood-comfort-bar"
+                                    style="width: 80%; height: 100%; background: #f59e0b; transition: width 0.5s;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class='setting-item'>
                     <label>Körperhaltung (Pose)</label>
@@ -687,6 +792,55 @@
                         <option value="playful">Verspielt</option>
                         <option value="calibrate">Kalibrieren (Gerade)</option>
                     </select>
+                </div>
+                <div class='setting-item'>
+                    <label>Körperhöhe (Body Height)</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="range" min="40" max="140" value="105" id="height-slider" style="flex: 1;"
+                            oninput="changeHeight(this.value)">
+                        <span id="height-val" style="font-size: 0.8rem; color: var(--accent); width: 40px;">105mm</span>
+                    </div>
+                </div>
+                <div class='setting-item'
+                    style="border-top: 1px solid var(--glass-border); padding-top: 15px; margin-top: 10px;">
+                    <label>Körper Neigung (Roll / Pitch / Yaw)</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 5px;">
+                        <div>
+                            <span style="font-size: 0.6rem; color: var(--text-dim);">Roll</span>
+                            <input type="range" min="-30" max="30" value="0" step="1" id="body-roll"
+                                oninput="updateBodyPose('roll', this.value)">
+                        </div>
+                        <div>
+                            <span style="font-size: 0.6rem; color: var(--text-dim);">Pitch</span>
+                            <input type="range" min="-30" max="30" value="0" step="1" id="body-pitch"
+                                oninput="updateBodyPose('pitch', this.value)">
+                        </div>
+                        <div>
+                            <span style="font-size: 0.6rem; color: var(--text-dim);">Yaw</span>
+                            <input type="range" min="-30" max="30" value="0" step="1" id="body-yaw"
+                                oninput="updateBodyPose('yaw', this.value)">
+                        </div>
+                    </div>
+                </div>
+                <div class='setting-item'>
+                    <label>Körper Versatz (Shift X / Y / Z)</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 5px;">
+                        <div>
+                            <span style="font-size: 0.6rem; color: var(--text-dim);">Vorn/Zurn (X)</span>
+                            <input type="range" min="-50" max="50" value="0" step="1" id="body-x"
+                                oninput="updateBodyPose('x', this.value)">
+                        </div>
+                        <div>
+                            <span style="font-size: 0.6rem; color: var(--text-dim);">Links/Rechts (Z)</span>
+                            <input type="range" min="-40" max="40" value="0" step="1" id="body-z"
+                                oninput="updateBodyPose('z', this.value)">
+                        </div>
+                        <div>
+                            <span style="font-size: 0.6rem; color: var(--text-dim);">Hoch/Runter (Y)</span>
+                            <input type="range" min="-60" max="60" value="0" step="1" id="body-y"
+                                oninput="updateBodyPose('y', this.value)">
+                        </div>
+                    </div>
                 </div>
                 <div class='setting-item'>
                     <label>Intelligenz-Modus</label>
@@ -776,6 +930,19 @@
                 <div id="servos-viz-grid"
                     style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem; justify-items: center;">
                     <!-- Dynamically filled by JS -->
+                </div>
+                <div id="servo-test-suite"
+                    style="margin-top: 2rem; padding: 1.5rem; background: rgba(255,255,255,0.02); border: 1px dashed var(--glass-border); border-radius: 16px; display: none;">
+                    <h3 style="margin-top: 0; color: var(--accent); font-size: 1rem; margin-bottom: 1rem;">🧪 Servo Test
+                        Suite (Active in Calibration Mode)</h3>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn-ctrl" onclick="sendServoTest('all_90')">Neutral (90°)</button>
+                        <button class="btn-ctrl" onclick="sendServoTest('sine_wave')">Sine Wave</button>
+                        <button class="btn-ctrl" onclick="sendServoTest('leg_cycle')">Leg Cycle</button>
+                        <button class="btn-ctrl" onclick="sendServoTest('walk_cycle')">Walk Cycle</button>
+                        <button class="btn-ctrl" onclick="sendServoTest('sit')">Sit</button>
+                        <button class="btn-ctrl" onclick="sendServoTest('down')">Down</button>
+                    </div>
                 </div>
             </section>
         </div>
@@ -910,6 +1077,22 @@
             }
         }
         const audio = new BuzzerAudio();
+
+        const toast = {
+            el: null,
+            init() {
+                if (this.el) return;
+                this.el = document.createElement('div');
+                this.el.className = 'toast';
+                document.body.appendChild(this.el);
+            },
+            show(msg, duration = 3000) {
+                this.init();
+                this.el.innerText = msg;
+                this.el.classList.add('active');
+                setTimeout(() => this.el.classList.remove('active'), duration);
+            }
+        };
 
         function toggleAudio() {
             audio.init();
@@ -1129,47 +1312,107 @@
                     document.getElementById('cfg-mqtt-broker').value = currentConfig.mqtt.broker || "";
                 }
                 if (!currentConfig.servos) return;
-                let servoHtml = '';
+
+                let servoHtml = `
+                    <table class="calibration-table" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                        <thead>
+                            <tr style="text-align: left; border-bottom: 2px solid var(--glass-border); color: var(--accent);">
+                                <th style="padding: 12px 8px;">Bein / Gelenk</th>
+                                <th style="padding: 12px 0; width: 85px; text-align: center;">-Lim</th>
+                                <th style="padding: 12px 0; width: 85px; text-align: center;">+Lim</th>
+                                <th style="padding: 12px 0; width: 85px; text-align: center;">Offset</th>
+                                <th style="padding: 12px 0; width: 50px; text-align: center;">Inv</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
                 const legs = [
-                    { id: 'leg_fl', name: 'Vorne Links' },
-                    { id: 'leg_fr', name: 'Vorne Rechts' },
-                    { id: 'leg_rl', name: 'Hinten Links' },
-                    { id: 'leg_rr', name: 'Hinten Rechts' }
+                    { id: 'leg_fl', name: 'FL' },
+                    { id: 'leg_fr', name: 'FR' },
+                    { id: 'leg_rl', name: 'RL' },
+                    { id: 'leg_rr', name: 'RR' }
                 ];
                 const joints = [
-                    { id: 'coxa', name: 'Huefte (Seitlich)' },
-                    { id: 'femur', name: 'Oberschenkel (Hoehe)' },
-                    { id: 'tibia', name: 'Unterschenkel (Knie)' }
+                    { id: 'joint_1', name: 'Gelenk 1 (Schulter)' },
+                    { id: 'joint_2', name: 'Gelenk 2 (Oben)' },
+                    { id: 'joint_3', name: 'Gelenk 3 (Knie)' }
                 ];
+
                 legs.forEach(leg => {
                     if (currentConfig.servos[leg.id]) {
-                        servoHtml += '<h3>' + leg.name + ' Bein</h3><div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">';
-                        joints.forEach(joint => {
-                            if (currentConfig.servos[leg.id][joint.id]) {
-                                const val = currentConfig.servos[leg.id][joint.id].middle;
-                                const path = 'servos.' + leg.id + '.' + joint.id + '.middle';
-                                servoHtml += '<div class="setting-item" style="margin-bottom: 0;">' +
-                                    '<label style="font-size: 0.8rem;">' + joint.name + ' Offset (' + val + '°)</label>' +
-                                    '<input type="range" min="45" max="135" value="' + val + '" ' +
-                                    'oninput="this.previousElementSibling.innerText = \'' + joint.name + ' Offset (\' + this.value + \'°)\'; updateQuickConfig(\'' + path + '\', parseInt(this.value))">' +
-                                    '</div>';
+                        joints.forEach((joint, jIdx) => {
+                            const cfg = currentConfig.servos[leg.id][joint.id];
+                            if (cfg) {
+                                const rowStyle = (jIdx === 2) ? "border-bottom: 1px solid var(--glass-border);" : "";
+                                servoHtml += `
+                                    <tr style="${rowStyle}">
+                                        <td style="padding: 8px 5px; font-size: 0.85rem; font-weight: 600;">
+                                            <span style="color: var(--text-dim)">${leg.name}</span> ${joint.name}
+                                        </td>
+                                        <td style="padding: 5px;">
+                                            <input type="number" class="mini-input" value="${cfg.limit_neg}" 
+                                                onchange="updateServoParam('${leg.id}', '${joint.id}', 'limit_neg', parseInt(this.value))">
+                                        </td>
+                                        <td style="padding: 5px;">
+                                            <input type="number" class="mini-input" value="${cfg.limit_pos}" 
+                                                onchange="updateServoParam('${leg.id}', '${joint.id}', 'limit_pos', parseInt(this.value))">
+                                        </td>
+                                        <td style="padding: 5px;">
+                                            <input type="number" class="mini-input" value="${cfg.middle}" 
+                                                onchange="updateServoParam('${leg.id}', '${joint.id}', 'middle', parseInt(this.value))">
+                                        </td>
+                                        <td style="padding: 5px; text-align: center;">
+                                            <input type="checkbox" ${cfg.inverted ? 'checked' : ''} 
+                                                onchange="updateServoParam('${leg.id}', '${joint.id}', 'inverted', this.checked)">
+                                        </td>
+                                    </tr>
+                                `;
                             }
                         });
-                        servoHtml += '</div>';
                     }
                 });
+
+                // Camera Tilt
                 if (currentConfig.servos.camera && currentConfig.servos.camera.tilt) {
-                    const camTilt = currentConfig.servos.camera.tilt.middle;
-                    servoHtml += '<h3>Kamera</h3><div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">' +
-                        '<div class="setting-item" style="margin-bottom: 0;">' +
-                        '<label style="font-size: 0.8rem;">Neigung / Tilt (' + camTilt + '°)</label>' +
-                        '<input type="range" min="45" max="135" value="' + camTilt + '" ' +
-                        'oninput="this.previousElementSibling.innerText = \'Neigung / Tilt (\' + this.value + \'°)\'; updateQuickConfig(\'servos.camera.tilt.middle\', parseInt(this.value))">' +
-                        '</div>' +
-                        '</div>';
+                    const cfg = currentConfig.servos.camera.tilt;
+                    servoHtml += `
+                        <tr style="border-top: 2px solid var(--glass-border);">
+                            <td style="padding: 8px 5px; font-size: 0.85rem; font-weight: 600;">Kamera Tilt</td>
+                            <td style="padding: 5px;"><input type="number" class="mini-input" value="${cfg.limit_neg}" onchange="updateServoParam('camera', 'tilt', 'limit_neg', parseInt(this.value))"></td>
+                            <td style="padding: 5px;"><input type="number" class="mini-input" value="${cfg.limit_pos}" onchange="updateServoParam('camera', 'tilt', 'limit_pos', parseInt(this.value))"></td>
+                            <td style="padding: 5px;"><input type="number" class="mini-input" value="${cfg.middle}" onchange="updateServoParam('camera', 'tilt', 'middle', parseInt(this.value))"></td>
+                            <td style="padding: 5px; text-align: center;"><input type="checkbox" ${cfg.inverted ? 'checked' : ''} onchange="updateServoParam('camera', 'tilt', 'inverted', this.checked)"></td>
+                        </tr>
+                    `;
                 }
+
+                servoHtml += '</tbody></table>';
+                servoHtml += '<button class="btn-save" style="width: 100%; margin-top: 20px;" onclick="saveServoConfig()">Konfiguration Speichern</button>';
+
                 document.getElementById('servo-list').innerHTML = servoHtml;
             } catch (err) { console.error('Config load error:', err); }
+        }
+
+        async function updateServoParam(leg, joint, param, value) {
+            if (!currentConfig.servos[leg]) currentConfig.servos[leg] = {};
+            if (!currentConfig.servos[leg][joint]) currentConfig.servos[leg][joint] = {};
+            currentConfig.servos[leg][joint][param] = value;
+        }
+
+        async function saveServoConfig() {
+            try {
+                const res = await fetch('/api/config/servos/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentConfig.servos)
+                });
+                if (res.ok) {
+                    toast.show("Servo-Konfiguration gespeichert!");
+                } else {
+                    alert("Speichern fehlgeschlagen.");
+                }
+            } catch (err) { alert("Netzwerkfehler beim Speichern."); }
         }
         async function updateQuickConfig(key, value) {
             const data = {};
@@ -1184,8 +1427,32 @@
         function sendCommand(cmd) { fetch('/api/command/' + cmd, { method: 'POST' }); }
         function stopCommand() { fetch('/api/command/stop', { method: 'POST' }); }
         function changeGait(gait) { fetch('/api/gait/' + gait, { method: 'POST' }); }
+        function updateSpeed(val) {
+            document.getElementById('speed-val').innerText = val + '%';
+            // Scale 0-100 to 0.0-1.0 Hz
+            const speed_hz = parseFloat(val) / 100.0;
+            fetch('/api/speed/' + speed_hz, { method: 'POST' });
+        }
         function changePose(pose) { fetch('/api/pose/' + pose, { method: 'POST' }); }
         function changeMode(mode) { fetch('/api/mode/' + mode, { method: 'POST' }); }
+        function changeHeight(val) {
+            document.getElementById('height-val').innerText = val + 'mm';
+            fetch('/api/height/' + val, { method: 'POST' });
+        }
+        function updateBodyPose(key, val) {
+            const data = {};
+            data[key] = parseFloat(val);
+            fetch('/api/body/pose', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+        }
+        async function sendServoTest(motion) {
+            console.log("Requesting servo test:", motion);
+            const res = await fetch('/api/servo/test/' + motion, { method: 'POST' });
+            if (!res.ok) alert("Fehler beim Starten der Test-Bewegung.");
+        }
 
         async function updateStatus() {
             try {
@@ -1202,8 +1469,24 @@
                     if (document.activeElement !== sel) sel.value = data.pose;
                 }
                 if (data.gait) {
-                    const sel = document.getElementById('gait-select');
-                    if (document.activeElement !== sel) sel.value = data.gait;
+                    const label = document.getElementById('current-gait-label');
+                    if (label) label.innerText = data.gait.charAt(0).toUpperCase() + data.gait.slice(1);
+                }
+
+                // 2. Mood
+                if (data.mood) {
+                    for (const [key, val] of Object.entries(data.mood)) {
+                        const bar = document.getElementById(`mood-${key}-bar`);
+                        const pct = document.getElementById(`mood-${key}-pct`);
+                        if (bar) bar.style.width = (val * 100) + '%';
+                        if (pct) pct.innerText = Math.round(val * 100) + '%';
+                    }
+                }
+
+                // Servo Test Suite Visibility
+                const testSuite = document.getElementById('servo-test-suite');
+                if (testSuite) {
+                    testSuite.style.display = (data.pose === 'calibrate') ? 'block' : 'none';
                 }
 
                 // 2. Battery
@@ -1461,44 +1744,43 @@
                                 <button class="view-btn" onclick="setView('${key}', 'front')" title="Front View">F</button>
                             </div>
                             <div class="servo-stats-bar">
-                                <span class="stat-item">C: <b id="stat-${key}-coxa">0°</b></span>
-                                <span class="stat-item">F: <b id="stat-${key}-femur">0°</b></span>
-                                <span class="stat-item">T: <b id="stat-${key}-tibia">0°</b></span>
+                                <span class="stat-item">1: <b id="stat-${key}-joint_1">0°</b></span>
+                                <span class="stat-item">2: <b id="stat-${key}-joint_2">0°</b></span>
+                                <span class="stat-item">3: <b id="stat-${key}-joint_3">0°</b></span>
                             </div>
                         </div>
                         <div class="leg-viz" id="leg-${key}">
                             <div class="viz-container view-iso" id="viz-${key}">
                                 <div class="ground-plane"></div>
                                 <div class="body-base"></div>
-                                <!-- Coxa: Rotates around Z-axis (Roll) -->
-                                <div class="joint" id="joint-${key}-coxa" style="transform: rotateY(${baseRot}deg);">
+                                <!-- Joint 1: Rotates around Z-axis (Roll) -->
+                                <div class="joint" id="joint-${key}-joint_1" style="left: 0;">
                                     <div class="axis-debug">
                                         <div class="axis-line axis-x"><span class="axis-label">X</span></div>
                                         <div class="axis-line axis-y"><span class="axis-label">Y</span></div>
                                         <div class="axis-line axis-z"><span class="axis-label">Z</span></div>
                                     </div>
-                                    <div class="bone" style="width: 50px; background: #94a3b8;"></div>
+                                    <div class="bone" style="width: 25px; background: #94a3b8;"></div>
                                     <div class="joint-dot"></div>
                                     
-                                    <!-- Femur: Parented to Coxa, rotates around local X-axis (Pitch) -->
-                                    <div class="joint" id="joint-${key}-femur" style="left: 50px;">
+                                    <!-- Joint 2: Parented to Shoulder, rotates around local X-axis (Pitch) -->
+                                    <div class="joint" id="joint-${key}-joint_2" style="left: 25px;">
                                         <div class="axis-debug">
                                             <div class="axis-line axis-x"><span class="axis-label">X</span></div>
                                             <div class="axis-line axis-y"><span class="axis-label">Y</span></div>
                                             <div class="axis-line axis-z"><span class="axis-label">Z</span></div>
                                         </div>
-                                        <!-- Use vertical bone for femur -->
-                                        <div class="bone" style="width: 12px; height: 80px; left: -6px; top: 0;"></div>
+                                        <div class="bone" style="width: 55px; height: 12px; left: 0; top: -6px;"></div>
                                         <div class="joint-dot"></div>
                                         
-                                        <!-- Tibia: Parented to Femur bottom, rotates around local X-axis (Pitch) -->
-                                        <div class="joint" id="joint-${key}-tibia" style="top: 80px;">
+                                        <!-- Joint 3: Parented to Upper Leg, rotates around local X-axis (Pitch) -->
+                                        <div class="joint" id="joint-${key}-joint_3" style="left: 55px;">
                                             <div class="axis-debug">
                                                 <div class="axis-line axis-x"><span class="axis-label">X</span></div>
                                                 <div class="axis-line axis-y"><span class="axis-label">Y</span></div>
                                                 <div class="axis-line axis-z"><span class="axis-label">Z</span></div>
                                             </div>
-                                            <div class="bone" style="width: 12px; height: 80px; left: -6px; top: 0;"></div>
+                                            <div class="bone" style="width: 60px; height: 12px; left: 0; top: -6px;"></div>
                                             <div class="joint-dot"></div>
                                         </div>
                                     </div>
@@ -1516,37 +1798,34 @@
                 let angle_sum = 0;
                 let angle_coxa = 0;
 
-                ['coxa', 'femur', 'tibia'].forEach(part => {
+                ['joint_1', 'joint_2', 'joint_3'].forEach(part => {
                     const sData = data[`${leg}_${part}`];
                     if (sData) {
                         const joint = document.getElementById(`joint-${leg}-${part}`);
                         const valSpan = document.getElementById(`stat-${leg}-${part}`);
 
                         if (joint && valSpan) {
-                            let angle = sData.angle - 90; // Relative to neutral
+                            // Use raw_angle for visualization to bypass hardware trim/offsets
+                            const displayAngle = (sData.raw_angle !== undefined) ? sData.raw_angle : sData.angle;
+                            let angle = displayAngle - 90; // Relative to neutral
 
-                            // Base orientation: orient legs to point "away" from center
-                            // fl/rl point LEFT (-X), fr/rr point RIGHT (+X)
                             const baseRot = isLeft ? 180 : 0;
 
-                            if (part === 'coxa') {
+                            if (part === 'joint_1') {
                                 angle_coxa = angle;
                                 angle_sum = angle;
-                                // Coxa: Roll around Z-axis
-                                joint.style.transform = `rotateY(${baseRot}deg) rotateZ(${angle}deg)`;
-
-                                const debug = joint.querySelector('.axis-debug');
-                                if (debug) debug.style.transform = 'rotateX(0deg)';
-                            } else {
-                                angle_sum += angle;
-                                // Femur/Tibia: Pitch around X-axis
-                                joint.style.transform = `rotateX(${angle}deg)`;
-
-                                const debug = joint.querySelector('.axis-debug');
-                                if (debug) debug.style.transform = 'rotateY(0deg)';
+                                // Joint 1: Shoulder Roll (Side tilt)
+                                joint.style.transform = `rotateY(${baseRot}deg) rotateX(${angle}deg)`;
+                            } else if (part === 'joint_2') {
+                                // Joint 2: Hip Pitch (Forward/Backward)
+                                // In this bone orientation, rotateY moves the leg in the side-longitudinal plane.
+                                joint.style.transform = `rotateY(${angle}deg)`;
+                            } else if (part === 'joint_3') {
+                                // Joint 3: Knee Pitch (Flexion/Extension)
+                                joint.style.transform = `rotateY(${180 - displayAngle}deg)`;
                             }
 
-                            valSpan.innerText = `${Math.round(sData.angle)}°`;
+                            valSpan.innerText = `${Math.round(displayAngle)}°`;
 
                             // billboarding: counter-rotate parent hierarchical transforms
                             // Container is -30X, -45Y. Base is baseRotY.

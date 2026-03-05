@@ -74,7 +74,8 @@ def main():
     led = SalFactory.get_led(config)
     
     # 2. Engine Initialization
-    gait = GaitSequencer(base_height=90.0)
+    default_height = config.get("system.base_height", 105.0)
+    gait = GaitSequencer(base_height=default_height)
     ik = IKEngine()
     
     sensors = {"ultrasonic": ultrasonic, "imu": imu, "battery": battery, "gait": gait, "buzzer": buzzer, "led": led}
@@ -98,37 +99,40 @@ def main():
     
     logger.info(f"Robot ready. Control Loop running at {hz}Hz.")
     
+    last_ha_time = 0
+    last_map_time = 0
+    
     try:
         while True:
             start_time = time.perf_counter()
+            now_ts = time.time()
             
-            # --- UPDATE CYCLE ---
+            # --- 1. MOVEMENT (PRIORITY) ---
+            gait.update(dt)
+            target_poses = gait.calculate_step()
+            servo_ctrl.update_poses(target_poses, ik)
             
-            # A. Sensors
+            # --- 2. SENSORS ---
             imu.update()
             battery.update()
             ultrasonic.update()
-            buzzer.update() # Sync mock state
+            buzzer.update()
             
-            # B. Intelligence (Behavior Tree)
+            # --- 3. INTELLIGENCE ---
             intelligence.update()
             
-            # C. Movement (Gaits & IK)
-            gait.update(dt)
-            target_poses = gait.calculate_step()
-            
-            # D. Output to Servos
-            servo_ctrl.update_poses(target_poses, ik)
-            
-            # E. Telemetry to HA
-            if int(time.time() * 10) % 10 == 0: # 1 Hz
+            # --- 4. TELEMETRY (THROTTLED) ---
+            # HA Telemetry (1 Hz)
+            if now_ts - last_ha_time >= 1.0:
                 ha.publish_state("battery", battery.get_data().voltage)
                 ha.publish_state("system_mode", intelligence.context["system_mode"])
+                last_ha_time = now_ts
             
-            if int(time.time() * 10) % 20 == 0: # 0.5 Hz
+            # Environmental Map (High bandwidth -> Background thread)
+            # Throttle to 2s based on user feedback (movement priority)
+            if now_ts - last_map_time >= 2.0:
                 if intelligence and hasattr(intelligence, "mapping"):
                     m = intelligence.mapping
-                    # Convert tuple keys to strings for MQTT/JSON
                     serializable_grid = {f"{k[0]},{k[1]}": v for k, v in m.grid.items()}
                     map_data = {
                         "robot_pos": m.robot_pos,
@@ -136,16 +140,23 @@ def main():
                         "grid": serializable_grid,
                         "landmarks": m.landmarks
                     }
-                    ha.publish_state("env_map", map_data)
+                    ha.publish_state("env_map", map_data, use_thread=True)
+                last_map_time = now_ts
             
             # --- PERFORMANCE MONITORING ---
             elapsed = time.perf_counter() - start_time
-            if int(time.time()) % 5 == 0: # Every 5 seconds
-                if not hasattr(main, "_last_perf_log") or main._last_perf_log != int(time.time()):
+            if int(now_ts) % 5 == 0:
+                if not hasattr(main, "_last_perf_log") or main._last_perf_log != int(now_ts):
                     logger.info(f"[PERF] Loop frequency: {1.0/max(0.0001, elapsed):.1f} Hz | Work time: {elapsed*1000:.2f} ms")
-                    main._last_perf_log = int(time.time())
+                    main._last_perf_log = int(now_ts)
             
-            sleep_time = max(0, dt - elapsed)
+            # Auto-Reload Config
+            if int(now_ts) % 2 == 0:
+                if not hasattr(main, "_last_reload_check") or main._last_reload_check != int(now_ts):
+                    config.reload_if_changed()
+                    main._last_reload_check = int(now_ts)
+
+            sleep_time = max(0, dt - (time.perf_counter() - start_time))
             time.sleep(sleep_time)
             
     except KeyboardInterrupt:

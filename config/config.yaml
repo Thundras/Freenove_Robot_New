@@ -9,91 +9,91 @@ hardware:
   ultrasonic_trigger: 27
   ultrasonic_echo: 22
 servos:
-  leg_fl:
-    coxa:
-      channel: 0
-      middle: 45
-      min: 20
-      max: 160
-      inverted: false
-    femur:
-      channel: 1
-      middle: 90
-      min: 20
-      max: 160
-      inverted: false
-    tibia:
-      channel: 2
-      middle: 90
-      min: 20
-      max: 160
-      inverted: false
-  leg_fr:
-    coxa:
-      channel: 3
-      middle: 135
-      min: 20
-      max: 160
-      inverted: true
-    femur:
-      channel: 4
-      middle: 45
-      min: 20
-      max: 160
-      inverted: true
-    tibia:
-      channel: 5
-      middle: 135
-      min: 20
-      max: 160
-      inverted: true
-  leg_rl:
-    coxa:
-      channel: 6
-      middle: 90
-      min: 20
-      max: 160
-      inverted: false
-    femur:
-      channel: 7
-      middle: 90
-      min: 20
-      max: 160
-      inverted: false
-    tibia:
-      channel: 8
-      middle: 90
-      min: 20
-      max: 160
-      inverted: false
-  leg_rr:
-    coxa:
-      channel: 9
-      middle: 90
-      min: 20
-      max: 160
-      inverted: true
-    femur:
-      channel: 10
-      middle: 135
-      min: 20
-      max: 160
-      inverted: true
-    tibia:
-      channel: 11
-      middle: 90
-      min: 20
-      max: 160
-      inverted: true
   camera:
     tilt:
       channel: 14
-      middle: 135
-      min: 45
-      max: 135
       inverted: false
+      limit_neg: 45
+      limit_pos: 45
+      middle: 90
+  leg_fl:
+    joint_1:
+      channel: 0
+      inverted: false
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
+    joint_2:
+      channel: 1
+      inverted: false
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
+    joint_3:
+      channel: 2
+      inverted: false
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
+  leg_fr:
+    joint_1:
+      channel: 3
+      inverted: true
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
+    joint_2:
+      channel: 4
+      inverted: true
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
+    joint_3:
+      channel: 5
+      inverted: true
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
+  leg_rl:
+    joint_1:
+      channel: 6
+      inverted: false
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
+    joint_2:
+      channel: 7
+      inverted: false
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
+    joint_3:
+      channel: 8
+      inverted: false
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
+  leg_rr:
+    joint_1:
+      channel: 9
+      inverted: true
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
+    joint_2:
+      channel: 10
+      inverted: true
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
+    joint_3:
+      channel: 11
+      inverted: true
+      limit_neg: 90
+      limit_pos: 90
+      middle: 90
 system:
-  control_loop_hz: 100
+  control_loop_hz: 50
   log_level: INFO
   simulation_mode: true
   camera_stabilization: true
@@ -106,6 +106,10 @@ system:
   show_vision_debug: true
   social_memory_min_exposure: 60
   social_memory_max_age_hours: 2
+  base_height: 105
+  shoulder_to_body_offset: 50
+  body_length: 140
+  body_width: 80
 mapping:
   markers:
     '0':

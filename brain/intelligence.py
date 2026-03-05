@@ -4,10 +4,11 @@ import time
 import json
 import os
 import numpy as np
-from .bt_core import Selector, Sequence
-from .behaviors import AvoidObstacles, SmartExplore, ReactToPerson, FollowPerson, Idle, HandleGesture, AlarmPulse, SecurityMonitor, DogSocialInteraction, PlayWithBall, AmbientLook, ReactToFace
+from .bt_core import Selector, Sequence, Parallel
+from .behaviors import AvoidObstacles, SmartExplore, ReactToPerson, FollowPerson, Idle, HandleGesture, AlarmPulse, SecurityMonitor, DogSocialInteraction, PlayWithBall, AmbientLook, ReactToFace, ExpressMood
 from .vision import VisionProcess
 from .mapping import MappingManager
+from .mood import MoodManager
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +220,8 @@ class IntelligenceController:
             "system_mode": "autonomous", # autonomous, manual, sit, down
             "target_tilt": 90,
             "play_interest": 1.0, # Initial: Fully motivated
-            "gesture_trust_threshold": config.get("system.gesture_trust_threshold", 0.1)
+            "gesture_trust_threshold": config.get("system.gesture_trust_threshold", 0.1),
+            "mood": MoodManager()
         }
         
         db_path = os.path.join(os.path.dirname(__file__), "face_db.json")
@@ -262,15 +264,24 @@ class IntelligenceController:
     def setup_behavior_tree(self):
         """Construct the robot's main behavior tree"""
         # Node instances
-        # Inject self into sensors for behaviors that need mode access (like AvoidObstacles)
         self.sensors["intelligence"] = self
+        
+        # 1. Safety & System (Highest Priority)
         avoid = AvoidObstacles("AvoidObstacles", self.sensors)
         gesture = HandleGesture("HandleGesture", self.context)
+        
+        # 2. Emotional/Biological Layer (Parallel)
+        # This node always runs to update body language, but returns success to let others continue
+        express = ExpressMood("ExpressMood", self.context)
+        
+        # 3. Reactive Behaviors
         react_face = ReactToFace("ReactToFace", self.context)
-        react = ReactToPerson("ReactToPerson", self.context)
-        follow = FollowPerson("FollowPerson", self.context)
-        social = DogSocialInteraction("DogSocialInteraction", self.context)
+        react_person = ReactToPerson("ReactToPerson", self.context)
         ball = PlayWithBall("PlayWithBall", self.context)
+        social = DogSocialInteraction("DogSocialInteraction", self.context)
+        
+        # 4. Long-term Task / Explore
+        follow = FollowPerson("FollowPerson", self.context)
         explore = SmartExplore("SmartExplore", self.gait, self.context)
         ambient = AmbientLook("AmbientLook", self.context)
         idle = Idle("IdleAnimation", self.gait)
@@ -278,22 +289,35 @@ class IntelligenceController:
         # Security Nodes
         security_alert = AlarmPulse("AlarmPulse", self.context)
         security_monitor = SecurityMonitor("SecurityMonitor", self.context)
-        
-        # Branches
-        # Alarm Branch: Only triggers if system_mode is 'alarm' AND person detected
         alarm_branch = Sequence("AlarmBranch", [security_monitor, security_alert])
         
-        # Interaction Branch
-        interaction = Selector("InteractionBranch", [follow, react])
+        # --- TREE HIERARCHY ---
         
-        # 1. Safety (Avoid)
-        # 2. Alarm (Priority threat)
-        # 3. Command (Gestures)
-        # 4. Ball (Play)
-        # 5. Social (Artgenossen)
-        # 6. Social (Interaction/Person)
-        # 6. Social (Interaction/Person)
-        root = Selector("MainBrain", [avoid, alarm_branch, gesture, react_face, ball, social, interaction, explore, ambient, idle])
+        # Interaction Selector: Priority of who/what to interact with
+        interaction = Selector("InteractionBranch", [
+            follow,         # explicit follow mode
+            react_face,     # recognize friends/strangers
+            react_person,   # general person detection
+            ball,           # play with ball
+            social          # dog social
+        ])
+        
+        # Main Active Branch: Decisions about movement/tasks
+        active_logic = Selector("ActiveLogic", [
+            avoid, 
+            alarm_branch, 
+            gesture, 
+            interaction, 
+            explore, 
+            ambient, 
+            idle
+        ])
+        
+        # The ROOT is a Parallel node:
+        # It runs ExpressMood (Layer 1) ALWAYS, and ActiveLogic (Layer 2)
+        # It succeeds if ActiveLogic succeeds (ExpressMood always succeeds)
+        root = Parallel("MoodBrain", [express, active_logic], success_threshold=1)
+        
         return root
 
     def start(self):
@@ -369,7 +393,9 @@ class IntelligenceController:
                 self.context["target_tilt"] = data.get("angle", 90)
         
         # --- SLAM: Odometry update ---
+        # --- MOOD: Update emotional states ---
         dt = now - self.last_update_ts
+        self.context["mood"].update(dt)
         self.last_update_ts = now
         
         if self.gait:
@@ -450,8 +476,8 @@ class IntelligenceController:
                 self.shared_imu[1] = getattr(imu_data, "pitch", 0.0)
                 self.shared_imu[2] = getattr(imu_data, "yaw", 0.0)
                 
-                # Apply Mechanical Stabilization (100Hz sync)
-                if self.servo_ctrl and self.mech_stab_enabled:
+                # Apply Mechanical Stabilization (100Hz sync) - Skip in calibration
+                if self.servo_ctrl and self.mech_stab_enabled and current_mode != "calibrate":
                     # Apply inversion
                     pitch_error = imu_data.pitch
                     if self.config.get("servos.camera.tilt.inverted", False):
@@ -461,14 +487,22 @@ class IntelligenceController:
                     target_tilt = self.context.get("target_tilt", 90)
                     stab_angle = target_tilt - pitch_error
                     # Clamp to safe limits
-                    min_a = self.config.get("servos.camera.tilt.min", 45)
-                    max_a = self.config.get("servos.camera.tilt.max", 135)
-                    stab_angle = max(min_a, min(max_a, stab_angle))
+                    l_neg = self.config.get("servos.camera.tilt.limit_neg", 45)
+                    l_pos = self.config.get("servos.camera.tilt.limit_pos", 45)
+                    middle = self.config.get("servos.camera.tilt.middle", 90)
+                    
+                    delta_stab = stab_angle - middle
+                    clamped_delta = max(-l_neg, min(l_pos, delta_stab))
+                    stab_angle = middle + clamped_delta
                     
                     self.servo_ctrl.set_angle(self.tilt_channel, stab_angle)
         
-        # Execute Behavior Tree
-        self.root.run()
+        # Execute Behavior Tree - Skip in calibration mode to allow manual servo tests
+        if current_mode != "calibrate":
+            self.root.run()
+        else:
+            # In calibration mode, we just ensure no active gaits are overriding manually
+            pass
 
     def stop(self):
         logger.info("Stopping Intelligence controller (Vision Process)...")

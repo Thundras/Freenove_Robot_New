@@ -80,14 +80,29 @@ class HAConnectivity:
             self.client.publish(topic, json.dumps(payload), retain=True)
             logger.info(f"Published discovery for {name}")
 
-    def publish_state(self, object_id: str, value: Any):
+    def publish_state(self, object_id: str, value: Any, use_thread: bool = False):
         """Update a state in HA. Handles strings, numbers, and dicts (JSON)"""
+        if not self.client.is_connected():
+            return
+            
         topic = self.mqtt_mgr.get_topic("state", object_id)
-        if isinstance(value, (dict, list)):
-            payload = json.dumps(value)
+        
+        def _execute_publish():
+            try:
+                if isinstance(value, (dict, list)):
+                    payload = json.dumps(value)
+                else:
+                    payload = str(value)
+                self.client.publish(topic, payload)
+            except Exception as e:
+                logger.debug(f"MQTT Publish error: {e}")
+
+        if use_thread:
+            # For heavy payloads like maps, offload to background
+            import threading
+            threading.Thread(target=_execute_publish, daemon=True).start()
         else:
-            payload = str(value)
-        self.client.publish(topic, payload)
+            _execute_publish()
 
     def on_message(self, client, userdata, msg):
         """Handle incoming command messages from Home Assistant"""

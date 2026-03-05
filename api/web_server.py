@@ -45,6 +45,25 @@ class WebServer:
             else:
                 return jsonify({"status": "error", "message": "Failed to save config"}), 500
 
+        @self.app.route('/api/config/servos', methods=['GET'])
+        def get_servo_config():
+            return jsonify(self.config.get("servos", {}))
+
+        @self.app.route('/api/config/servos/update', methods=['POST'])
+        def update_servo_config():
+            data = request.json
+            if not data:
+                return jsonify({"status": "error", "message": "No data provided"}), 400
+            
+            # Expecting a dictionary of servo settings
+            self.config.set("servos", data)
+            
+            if self.config.save_config():
+                logger.info("Servo configuration updated and saved via API.")
+                return jsonify({"status": "ok"})
+            else:
+                return jsonify({"status": "error", "message": "Failed to save config"}), 500
+
         @self.app.route('/api/servos', methods=['GET'])
         def get_servos():
             try:
@@ -65,9 +84,9 @@ class WebServer:
 
         @self.app.route('/api/gait/<gait>', methods=['POST'])
         def handle_gait(gait):
-            logger.info(f"Gait change requested: {gait}")
+            logger.info(f"Gait change manual requested: {gait}")
             if self.movement:
-                self.movement.set_gait(gait)
+                self.movement.change_gait(gait)
             return jsonify({"status": "ok", "gait": gait})
 
         @self.app.route('/api/pose/<pose>', methods=['POST'])
@@ -78,7 +97,7 @@ class WebServer:
                 self.movement.set_target_speed(0.0, 0.0)
             if self.intelligence:
                 # Map stationary poses to their respective modes
-                if pose in ["sit", "down"]:
+                if pose in ["sit", "down", "calibrate"]:
                     mode_to_set = pose
                 elif pose == "normal":
                     mode_to_set = "autonomous"
@@ -98,6 +117,36 @@ class WebServer:
                 if mode == "autonomous":
                     self.movement.set_pose("normal")
             return jsonify({"status": "ok", "mode": mode})
+
+        @self.app.route('/api/height/<float:val>', methods=['POST'])
+        def handle_height(val):
+            logger.info(f"Body height change requested: {val}mm")
+            if self.movement:
+                self.movement.set_base_height(val)
+                return jsonify({"status": "ok", "height": val})
+            return jsonify({"status": "error", "message": "Movement engine not ready"}), 503
+
+        @self.app.route('/api/body/pose', methods=['POST'])
+        def handle_body_pose():
+            data = request.json
+            if not data: return jsonify({"status": "error"}), 400
+            if self.movement:
+                # Update targets in GaitSequencer
+                for k, v in data.items():
+                    self.movement.update_body_pose(k, float(v))
+                return jsonify({"status": "ok"})
+            return jsonify({"status": "error"}), 503
+
+        @self.app.route('/api/servo/test/<motion>', methods=['POST'])
+        def handle_servo_test(motion):
+            logger.info(f"Servo test motion requested: {motion}")
+            if self.movement:
+                # Force calibration mode if starting a test motion? 
+                # Or just let it run if user is in that tab. 
+                # The user said "wenn ich ... auf kalibrierung stelle".
+                self.movement.set_test_motion(motion)
+                return jsonify({"status": "ok", "motion": motion})
+            return jsonify({"status": "error", "message": "Movement engine not ready"}), 503
 
         @self.app.route('/api/camera_stream')
         def camera_stream():
@@ -123,6 +172,7 @@ class WebServer:
                 "mode": "autonomous",
                 "pose": "normal",
                 "gait": "trot",
+                "mood": {"energy": 1.0, "excitement": 0.5, "comfort": 0.8},
                 "battery": {"voltage": 0.0, "percentage": 0},
                 "led": {"pattern": "off", "color": [0,0,0], "pixels": []},
                 "buzzer": {"active": False}
@@ -140,6 +190,9 @@ class WebServer:
                 if "buzzer" in self.intelligence.context["sensors"]:
                     buzzer = self.intelligence.context["sensors"]["buzzer"]
                     status["buzzer"] = {"active": getattr(buzzer, "is_beeping", False)}
+                
+                if "mood" in self.intelligence.context:
+                    status["mood"] = self.intelligence.context["mood"].moods
             
             if self.movement:
                 status["pose"] = getattr(self.movement, "current_pose", "normal")

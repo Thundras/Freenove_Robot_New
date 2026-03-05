@@ -8,14 +8,29 @@ class ConfigManager:
         self.config_path = config_path
         self._config: Dict[str, Any] = {}
         self._lock = threading.Lock()
+        self._last_mtime = 0
         self.load_config()
 
     def load_config(self):
         if not os.path.exists(self.config_path):
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
         
-        with open(self.config_path, "r") as f:
-            self._config = yaml.safe_load(f)
+        with self._lock:
+            self._last_mtime = os.path.getmtime(self.config_path)
+            with open(self.config_path, "r") as f:
+                self._config = yaml.safe_load(f)
+
+    def reload_if_changed(self):
+        """Check if config file has changed on disk and reload if necessary"""
+        if not os.path.exists(self.config_path):
+            return
+            
+        current_mtime = os.path.getmtime(self.config_path)
+        if current_mtime > self._last_mtime:
+            print(f"Config change detected on disk. Reloading {self.config_path}...")
+            self.load_config()
+            return True
+        return False
 
     def get(self, key: str, default: Any = None) -> Any:
         keys = key.split(".")

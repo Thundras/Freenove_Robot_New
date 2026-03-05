@@ -45,7 +45,7 @@ class MappingManager:
         ox = self.robot_pos[0] + dist_mm * math.cos(world_angle)
         oy = self.robot_pos[1] + dist_mm * math.sin(world_angle)
         
-        grid_pos = (int(ox / 10), int(oy / 10))
+        grid_pos = (int(ox / 50), int(oy / 50))
         self.grid[grid_pos] = time.time() # 1 = Occupied + Timestamp
 
     def clear_path(self, dist_mm: float, angle_rel: float):
@@ -54,11 +54,11 @@ class MappingManager:
         Iterates from robot to dist_mm and deletes grid entries.
         """
         world_angle = self.robot_yaw + angle_rel
-        # Step in 2cm increments to clear the path
-        for d in range(50, int(dist_mm), 20):
+        # Step in 5cm increments to clear the path
+        for d in range(50, int(dist_mm), 50):
             cx = self.robot_pos[0] + d * math.cos(world_angle)
             cy = self.robot_pos[1] + d * math.sin(world_angle)
-            grid_pos = (int(cx / 10), int(cy / 10))
+            grid_pos = (int(cx / 50), int(cy / 50))
             if grid_pos in self.grid:
                 del self.grid[grid_pos]
 

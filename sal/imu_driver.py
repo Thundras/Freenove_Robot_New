@@ -1,5 +1,6 @@
 import logging
 import time
+import math
 from typing import Optional
 from .base import ISensor, IMUData
 from utils.config import ConfigManager

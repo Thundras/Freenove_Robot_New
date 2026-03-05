@@ -48,10 +48,11 @@ class PCA9685Driver(IServoController):
             if leg_cfg:
                 x, y, z = coords
                 try:
-                    angles = ik_engine.calculate_angles(x, y, z)
+                    # Pass the servo limits to the IK engine so it calculates a physically achievable pose
+                    angles = ik_engine.calculate_angles(x, y, z, limits=leg_cfg)
                     
-                    # Mapping: Coxa/Femur/Tibia
-                    for part in ["coxa", "femur", "tibia"]:
+                    # Mapping: Joint_1/2/3
+                    for part in ["joint_1", "joint_2", "joint_3"]:
                         p_cfg = leg_cfg.get(part)
                         if p_cfg:
                             angle_ik = getattr(angles, part)
@@ -64,17 +65,15 @@ class PCA9685Driver(IServoController):
                             if p_cfg.get("inverted", False):
                                 delta = -delta
                             
-                            # Final angle = middle + delta
+                            # Final angle = middle + delta (Limit is already applied in IK engine)
                             final_angle = p_cfg.get("middle", 90) + delta
-                            
-                            # Clamp to limits
-                            final_angle = max(p_cfg.get("min", 20), min(p_cfg.get("max", 160), final_angle))
                             
                             self.set_angle(p_cfg.get("channel"), final_angle)
                             
                             # Store for visualization (global servo state)
                             self.current_angles[f"{leg_prefix}_{part}"] = {
                                 "angle": final_angle,
+                                "raw_angle": angle_ik,
                                 "channel": p_cfg.get("channel")
                             }
                             

@@ -597,3 +597,56 @@ class AmbientLook(Leaf):
             self.context["target_tilt"] = current + step
             
         return False # Return false to allow other low-prio behaviors to run (like Idle)
+class ExpressMood(Leaf):
+    """
+    Adds subtle, expressive body language using 6-DOF posing.
+    Influences height, roll (wobble), and pitch (gaze bias) based on mood.
+    """
+    def __init__(self, name, context):
+        super().__init__(name)
+        self.context = context
+        self.phase = 0.0
+
+    def run(self) -> bool:
+        mood = self.context.get("mood")
+        if not mood or not self.context.get("gait"):
+            return False
+
+        dt = 0.05 # Approximate loop dt
+        self.phase += dt
+        
+        # 1. Energy (Focus/Gaze)
+        # Low energy -> Lower head (Pitch) and slightly lower body
+        energy = mood.get("energy")
+        pitch_bias = (1.0 - energy) * -10.0 # Look down up to 10 deg
+        height_offset = (1.0 - energy) * -15.0 # Sink up to 15mm
+        
+        # 2. Excitement (Vibrancy/Wobble)
+        # High excitement -> Subtle happy roll wobble (breathing style but faster)
+        excitement = mood.get("excitement")
+        roll_wobble = 0.0
+        if excitement > 0.6:
+            wobble_freq = 2.0 + (excitement * 2.0) # 2-4 Hz
+            wobble_amp = (excitement - 0.6) * 5.0 # Up to 2 degrees
+            roll_wobble = np.sin(self.phase * wobble_freq) * wobble_amp
+
+        # 3. Comfort (Presence/Stability)
+        # Low comfort (anxiety) -> Crouch more (lower height), stay compact
+        comfort = mood.get("comfort")
+        crouch = (1.0 - comfort) * -20.0 # Sink up to 20mm more
+        
+        # Apply to Gait Engine
+        gait = self.context["gait"]
+        
+        # Base height is usually 105. Combine offsets.
+        total_height_adj = height_offset + crouch
+        # We don't want to sink too low
+        final_height = max(60, gait.base_height + total_height_adj)
+        
+        # Merge expressive pose into current target_pose
+        # Note: gait.update_body_pose expects a dictionary of keys
+        gait.update_body_pose("z", total_height_adj)
+        gait.update_body_pose("roll", roll_wobble)
+        gait.update_body_pose("pitch", pitch_bias)
+        
+        return True

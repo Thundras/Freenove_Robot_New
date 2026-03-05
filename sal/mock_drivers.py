@@ -25,42 +25,32 @@ class MockServoController(IServoController):
             
             x, y, z = coords
             try:
-                angles = ik_engine.calculate_angles(x, y, z)
+                # Pass the servo limits to the IK engine so it calculates a physically achievable pose
+                angles = ik_engine.calculate_angles(x, y, z, limits=leg_cfg)
                 
-                # Mapping: Coxa/Femur/Tibia
-                for part in ["coxa", "femur", "tibia"]:
+                # Mapping: Joint_1/2/3
+                for part in ["joint_1", "joint_2", "joint_3"]:
+                    p_cfg = {}
+                    if leg_cfg: p_cfg = leg_cfg.get(part, {})
+                    
                     angle_ik = getattr(angles, part)
-                    
-                    # Default if no config
-                    middle = 90
-                    inverted = False
-                    p_min = 20
-                    p_max = 160
-                    
-                    if leg_cfg and part in leg_cfg:
-                        p_cfg = leg_cfg[part]
-                        middle = p_cfg.get("middle", 90)
-                        inverted = p_cfg.get("inverted", False)
-                        p_min = p_cfg.get("min", 20)
-                        p_max = p_cfg.get("max", 160)
                     
                     # All joints now use 90 as the neutral midpoint in our IK
                     neutral = 90
                     delta = angle_ik - neutral
 
                     # Apply inversion
-                    if inverted:
+                    if p_cfg.get("inverted", False):
                         delta = -delta
                         
                     # Final angle = middle + delta
+                    middle = p_cfg.get("middle", 90)
                     final_angle = middle + delta
-                    
-                    # Clamp to limits
-                    final_angle = max(p_min, min(p_max, final_angle))
                     
                     self.angles[f"{leg_prefix}_{part}"] = {
                         "angle": final_angle,
-                        "channel": -1
+                        "raw_angle": angle_ik,
+                        "channel": p_cfg.get("channel", -1)
                     }
             except Exception as e:
                 logger.debug(f"Mock IK Error for leg {leg_prefix}: {e}")
