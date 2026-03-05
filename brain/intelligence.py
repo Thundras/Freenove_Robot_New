@@ -5,7 +5,7 @@ import json
 import os
 import numpy as np
 from .bt_core import Selector, Sequence, Parallel
-from .behaviors import AvoidObstacles, SmartExplore, ReactToPerson, FollowPerson, Idle, HandleGesture, AlarmPulse, SecurityMonitor, DogSocialInteraction, PlayWithBall, AmbientLook, ReactToFace, ExpressMood
+from .behaviors import AvoidObstacles, SmartExplore, ReactToPerson, FollowPerson, Idle, HandleGesture, AlarmPulse, SecurityMonitor, DogSocialInteraction, PlayWithBall, AmbientLook, ReactToFace, ExpressMood, AutoLevel
 from .vision import VisionProcess
 from .mapping import MappingManager
 from .mood import MoodManager
@@ -271,8 +271,9 @@ class IntelligenceController:
         gesture = HandleGesture("HandleGesture", self.context)
         
         # 2. Emotional/Biological Layer (Parallel)
-        # This node always runs to update body language, but returns success to let others continue
+        # These always run: update mood, stabilize trunk, etc.
         express = ExpressMood("ExpressMood", self.context)
+        autolevel = AutoLevel("AutoLevel", self.context)
         
         # 3. Reactive Behaviors
         react_face = ReactToFace("ReactToFace", self.context)
@@ -314,9 +315,8 @@ class IntelligenceController:
         ])
         
         # The ROOT is a Parallel node:
-        # It runs ExpressMood (Layer 1) ALWAYS, and ActiveLogic (Layer 2)
-        # It succeeds if ActiveLogic succeeds (ExpressMood always succeeds)
-        root = Parallel("MoodBrain", [express, active_logic], success_threshold=1)
+        # It runs ExpressMood, AutoLevel, and ActiveLogic
+        root = Parallel("MoodBrain", [express, autolevel, active_logic], success_threshold=1)
         
         return root
 

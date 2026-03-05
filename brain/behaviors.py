@@ -650,3 +650,44 @@ class ExpressMood(Leaf):
         gait.update_body_pose("pitch", pitch_bias)
         
         return True
+
+class AutoLevel(Leaf):
+    """
+    Reactive Stabilization: Uses IMU data to keep the trunk level.
+    Applies counter-tilt (Roll/Pitch) directly to the gait engine.
+    """
+    def __init__(self, name, context):
+        super().__init__(name)
+        self.context = context
+        # Access config via the intelligence controller stored in sensors
+        self.intel = context.get("sensors", {}).get("intelligence")
+        self.config = self.intel.config if self.intel else None
+        
+    def run(self) -> bool:
+        # Default to enabled if config missing
+        enabled = self.config.get("system.auto_leveling", True) if self.config else True
+        strength = self.config.get("system.auto_leveling_strength", 0.6) if self.config else 0.6
+
+        if not enabled or self.context.get("system_mode") == "calibrate":
+            # Ensure stabilization is reset if disabled
+            self.context["gait"].set_stabilization(0.0, 0.0)
+            return False
+
+        imu = self.context["sensors"].get("imu")
+        if not imu:
+            return False
+
+        data = imu.get_data()
+        if data:
+            # Inverse angles to counter-act the measured tilt
+            # If body is rolled 10 deg left, we want to roll 10 deg right relative to legs
+            comp_roll = -data.roll * strength
+            comp_pitch = -data.pitch * strength
+            
+            # Apply to gait engine
+            self.context["gait"].set_stabilization(comp_roll, comp_pitch)
+            
+            if int(time.time() * 2) % 10 == 0: # Occasional log
+                logger.debug(f"AutoLevel: Compensing Roll:{comp_roll:.1f} Pitch:{comp_pitch:.1f}")
+            
+        return True

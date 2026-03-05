@@ -79,6 +79,8 @@ class GaitSequencer:
         self.current_body_pose = {"roll": 0.0, "pitch": 0.0, "yaw": 0.0, "x": 0.0, "y": 0.0, "z": 0.0}
         self.auto_com_x = 0.0 # Automatic CoM shift (Pitch)
         self.auto_com_z = 0.0 # Automatic CoM shift (Roll)
+        self.stab_roll = 0.0 # IMU Stabilization Offset
+        self.stab_pitch = 0.0 # IMU Stabilization Offset
         self.smoothing_speed = 3.0 # Rad or mm per second
         
         self.step_length = 40.0
@@ -160,6 +162,11 @@ class GaitSequencer:
         if key in self.target_body_pose:
             self.target_body_pose[key] = value
 
+    def set_stabilization(self, roll: float, pitch: float):
+        """Directly sets high-frequency stabilization offsets (additive, no smoothing)"""
+        self.stab_roll = roll
+        self.stab_pitch = pitch
+
     def update(self, dt: float):
         # 1. Handle Ramping (Speed)
         if self.current_speed < self.target_speed:
@@ -238,9 +245,9 @@ class GaitSequencer:
         coords = {}
         
         # 1. Gather Current Pose (Rotation Degrees -> Radians)
-        # Roll (X), Pitch (Z), Yaw (Y)
-        r = math.radians(self.current_body_pose["roll"])
-        p = math.radians(self.current_body_pose["pitch"])
+        # Combine intent-based smoothed pose with high-speed stabilization
+        r = math.radians(self.current_body_pose["roll"] + self.stab_roll)
+        p = math.radians(self.current_body_pose["pitch"] + self.stab_pitch)
         y = math.radians(self.current_body_pose["yaw"])
         
         off_x = self.current_body_pose["x"] + self.auto_com_x

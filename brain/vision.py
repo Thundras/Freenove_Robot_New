@@ -331,15 +331,21 @@ class VisionProcess(multiprocessing.Process):
                             if radius > 10: # Minimum size
                                 # Normalize coordinates
                                 h_frame, w_frame = frame.shape[:2]
-                                try:
+                                    # Normalize coordinates relative to stabilized frame if possible
+                                    final_x, final_y = x / w_frame, y / h_frame
+                                    if soft_stab and remap_params:
+                                        final_x, final_y = self.transform_coords(x, y, *remap_params)
+                                        final_x /= w_frame
+                                        final_y /= h_frame
+
                                     if self.result_queue.full():
                                         self.result_queue.get_nowait()
                                     self.result_queue.put_nowait({
                                         "type": "object",
                                         "label": "ball",
-                                        "dist": int(2000 / radius) if radius > 0 else 2000, # Heuristic
-                                        "center_x": x / w_frame,
-                                        "center_y": y / h_frame,
+                                        "dist": int(2000 / radius) if radius > 0 else 2000,
+                                        "center_x": final_x,
+                                        "center_y": final_y,
                                         "conf": 0.9,
                                         "interest": "high"
                                     })
@@ -400,7 +406,14 @@ class VisionProcess(multiprocessing.Process):
                                     # Marker's yaw relative to camera
                                     marker_yaw_rel = math.atan2(-rmat[0, 2], rmat[2, 2])
                                     
-                                    try:
+                                        # Correct angle for stabilized frame
+                                        corner_center = np.mean(marker_corners_2d, axis=0) # [x, y]
+                                        if soft_stab and remap_params:
+                                            stabilized_center = self.transform_coords(corner_center[0], corner_center[1], *remap_params)
+                                            # Re-estimate angle relative to center of stabilized frame
+                                            # cam_matrix[0,2] is the center_x
+                                            angle_rel = math.atan2(stabilized_center[0] - cam_matrix[0, 2], cam_matrix[0, 0])
+
                                         if self.result_queue.full(): self.result_queue.get_nowait()
                                         self.result_queue.put_nowait({
                                             "type": "landmark",
@@ -409,8 +422,6 @@ class VisionProcess(multiprocessing.Process):
                                             "angle": angle_rel,
                                             "marker_yaw": marker_yaw_rel # Orientation of the marker itself
                                         })
-                                        logger.debug(f"Aruco 3D: {marker_id} dist={distance_mm:.1f}mm angle={math.degrees(angle_rel):.1f}deg")
-                                    except: pass
 
                     # --- AI STEP 1: Gesture Recognition (MediaPipe Tasks API) ---
                     if do_ai and hand_landmarker is not None:
@@ -538,6 +549,13 @@ class VisionProcess(multiprocessing.Process):
                                     except Exception: pass
 
                                 try:
+                                    final_cx, final_cy = center_x, center_y
+                                    if soft_stab and remap_params:
+                                        # Transform normalized back to pixel, then stabilize, then back to normalized
+                                        px, py = center_x * w, center_y * h
+                                        sx, sy = self.transform_coords(px, py, *remap_params)
+                                        final_cx, final_cy = sx / w, sy / h
+
                                     if self.result_queue.full():
                                         self.result_queue.get_nowait()
                                     
@@ -547,8 +565,8 @@ class VisionProcess(multiprocessing.Process):
                                         "dist": dist_est,
                                         "score": d["score"],
                                         "interest": interest_level,
-                                        "center_x": center_x,
-                                        "center_y": center_y,
+                                        "center_x": final_cx,
+                                        "center_y": final_cy,
                                         "timestamp": time.time()
                                     }
                                     if face_vec:

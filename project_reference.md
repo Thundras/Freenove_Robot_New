@@ -41,7 +41,8 @@ Measurements are in **millimeters (mm)**.
 ## 3. Movement & Gait Control
 - **6-DOF Control**: Body can translate (x,y,z) and rotate (roll,pitch,yaw). Order: Yaw -> Pitch -> Roll.
 - **Motion Blending**: ~~All pose and speed targets are ramped (MM/Deg per sec) for fluid motion.~~ All pose targets use **Organic S-Curve Smoothing** (Ease-in/out). Speed scales sinusoidally based on distance to target, preventing mechanical jerk.
-43: - **Automatic CoM Shift**: ~~The trunk dynamically compensates for pitch angles to maintain static stability. Shift: `X_offset = height * sin(pitch) * 0.8`.~~ => The trunk dynamically compensates in 2D (X and Z) to maintain static stability. Pitch shift: `X = height * sin(pitch) * 0.8`. Roll shift: `Z = -height * sin(roll) * 0.8`.
+- **Automatic CoM Shift**: ~~The trunk dynamically compensates for pitch angles to maintain static stability. Shift: `X_offset = height * sin(pitch) * 0.8`.~~ => The trunk dynamically compensates in 2D (X and Z) to maintain static stability. Pitch shift: `X = height * sin(pitch) * 0.8`. Roll shift: `Z = -height * sin(roll) * 0.8`.
+- **IMU Auto-Leveling (Body Gimbal)**: A reactive behavior node (`AutoLevel`) applies counter-rotations to the trunk based on MPU6050 data, keeping the body level regardless of terrain slope.
 - **Gaits**: 
   - **Walk**: 4-beat stable gait (FL:0.0, FR:0.5, RL:0.75, RR:0.25).
   - **Trot**: 2-beat diagonal gait (FL:0.0, FR:0.5, RL:0.5, RR:0.0).
@@ -50,7 +51,7 @@ Measurements are in **millimeters (mm)**.
 
 ### Behavior Tree (BT)
 Atomic actions (Leafs) organized into Selectors (Priority) and Sequences (Logic).
-- **Parallel Root**: Runs `ExpressMood` (Passive movement) and `ActiveLogic` (Goal-driven) concurrently.
+- **Parallel Root**: Runs `ExpressMood`, `AutoLevel` (Trunk stabilization), and `ActiveLogic` (Goal-driven) concurrently.
 
 ### Mood System (`brain/mood.py`)
 - **Energy**: Decays over a **2-hour period**.
@@ -59,7 +60,7 @@ Atomic actions (Leafs) organized into Selectors (Priority) and Sequences (Logic)
 
 ### Vision AI
 - **Gestures**: `COME` (3+ fingers), `SIT` (2), `DOWN` (1), `AWAY` (0/Fist).
-- **Stabilization**: DIS assumes 45° FOV. Tilt-servo compensates for body pitch to keep gaze level.
+- **Stabilization**: DIS assumes 45° FOV. Tilt-servo compensates for body pitch to keep gaze level. This works in tandem with **Body Auto-Leveling** for maximum stability.
 
 ## 5. System Configuration
 - **Hot-Reload**: The main loop checks `config.yaml` every **2 seconds** for disk changes and reloads automatically.
