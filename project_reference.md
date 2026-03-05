@@ -1,10 +1,11 @@
 # Project Reference: Freenove Robot Dog 2.0
 
 > [!IMPORTANT]
-> **Maintenance Rules:**
-> 1. **Add Only**: append new information as the project evolves.
-> 2. **No Deletions**: do not delete old information. Instead, use ~~strikethrough~~ for information that is no longer accurate.
-> 3. **Keep Current**: this document must be updated whenever significant design decisions or architectural changes are made.
+> **CRITICAL MAINTENANCE RULES (STRICTLY REQUIRED):**
+> 1. **NEVER OVERWRITE OR DELETE**: Do not remove existing information, even if it is outdated.
+> 2. **STRIKETHROUGH ONLY**: Use ~~strikethrough~~ to mark information that is no longer accurate.
+> 3. **APPEND NEW INFO**: Add new architectural or technical details below or next to the struck-through content.
+> 4. **KEEP ALIVE**: This document is the robot's "living memory" and must be updated with every major change.
 
 This document serves as the "Source of Truth" for design decisions, architecture, and hardware configurations for the Freenove Robot project.
 
