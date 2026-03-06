@@ -1,0 +1,142 @@
+# Freenove Robot - Behavior DNA Template
+# -------------------------------------
+# Use this file to define the robot's personality and logic flow.
+# Supports dynamic expressions ($), weighted randomness, and spatial checks.
+
+version: "1.0"
+
+# Root node is typically a Parallel to handle Mood/Safety concurrently
+root:
+  type: Parallel
+  name: "LivingBrain"
+  success_threshold: 1
+  children:
+    
+    # --- LAYER 1: PASSIVE / SYSTEM (Always Running) ---
+    - type: ExpressMood
+      name: "PassiveMood"
+    
+    # NEW: Additive Atmospheric Layers (Breathing, Heartbeat, etc.)
+    - type: AdditiveLayer
+      name: "Breathing"
+      condition: "energy > 0.1"
+      params:
+        y: "sin(time * 0.8) * 2" # Slow height oscillation
+        pitch: "sin(time * 0.8) * 1" # Subtle head tilt while breathing
+    
+    - type: AutoLevel
+      name: "TrunkStabilization"
+      condition: "config.system.auto_leveling == True"
+
+    # --- LAYER 2: ACTIVE LOGIC (Priority Driven) ---
+    - type: Selector
+      name: "ActiveDecisionLayer"
+      children:
+        
+        # 1. EMERGENCIES / ALARMS
+        - type: Sequence
+          name: "AlarmResponse"
+          condition: "mode == 'alarm'"
+          children:
+            - type: AlarmPulse
+            - type: SecurityMonitor
+              params:
+                speed: "0.5 + mood.aggression" # Aggressive pursuit
+                pose: "aggressive"
+                disable_features: ["ball", "gestures"] # Focus only on intruder
+
+        # 2. SOCIAL & INTERACTION
+        - type: Selector
+          name: "InteractionBranch"
+          children:
+            
+            # Happy Friend Approach
+            - type: Sequence
+              name: "WelcomeFriend"
+              condition: "last_face.trust > 0.8"
+              children:
+                - type: SetPose
+                  params: { pose: "playful" }
+                - type: AdditiveLayer
+                  name: "HappyWag" # A joyful body "wag"
+                  params:
+                    yaw: "sin(time * 15) * 5" # Fast jitter
+                    roll: "sin(time * 15) * 3"
+                - type: FollowPerson
+                  params: 
+                    speed_mod: "1.0 + mood.excitement" # Run to them!
+            
+            # Observer / Safety Branch for People
+            - type: Selector
+              name: "PersonObserver"
+              condition: "last_object.label == 'person'"
+              children:
+                
+                # Option A: "Safety Bubble" - Back away if stranger is too close
+                - type: SetSpeed
+                  name: "BackAwayFromStranger"
+                  condition: "last_object.dist < 800 and last_face.trust < 0.3"
+                  params:
+                    speed: -0.4 # Walk backwards
+                    pose: "cautious" # Lower stance
+                    disable_features: ["gestures"]
+
+                # Option B: Just watch curiously from a distance
+                - type: FollowPerson
+                  name: "WatchFromAfar"
+                  params:
+                    pose: "if last_face.trust < 0.3 then 'cautious' else 'normal'"
+                    speed_mod: 0.0 # Stay still
+                    disable_features: ["gestures"]
+
+        # 3. IDLE / ROAMING (The "Soul" Layer - Random Choice)
+        - type: WeightedSelector
+          name: "IdleMix"
+          children:
+            
+            # 60% Chance: Walk around curiously
+            - choice:
+                weight: 60
+                type: SmartExplore
+                params:
+                  speed: "0.2 + energy * 0.4" # Faster when energetic
+            
+            # 20% Chance: Sniff around (Only if comfortable)
+            - choice:
+                weight: 20
+                condition: "mood.comfort > 0.6"
+                type: SniffAnimation
+                params: { pose: "low_sniff" }
+
+            # 10% Chance: Dynamic Stretch (Custom Pose)
+            - choice:
+                weight: 10
+                type: SetCustomPose
+                params:
+                  y: -20 # Crouch slightly
+                  pitch: "-10 - mood.excitement * 10" # Look up more if excited
+                  roll: "sin(time * 2) * 10" # Subtle sway
+
+            # 20% Chance: Rest (If tired AND in a safe spot)
+            - choice:
+                weight: 20
+                condition: "energy < 0.3"
+                type: Selector
+                name: "RestingLogic"
+                children:
+                  # Option A: Lie down if near a wall
+                  - type: SetPose
+                    condition: "mapping.is_near_wall()"
+                    params: { pose: "lie_down" }
+                  
+                  # Option B: Just sit if not near wall
+                  - type: SetPose
+                    params: { pose: "sit" }
+                  
+                  # Option C: Just be sleepy
+                  - type: SetPose
+                    params: { pose: "tired" }
+
+        # 4. FALLBACK: IDLE
+        - type: Idle
+          name: "SystemIdle"

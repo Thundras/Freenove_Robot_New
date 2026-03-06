@@ -70,3 +70,44 @@ class MappingManager:
             del self.grid[pos]
         if to_delete:
             logger.debug(f"Map Aging: Cleaned up {len(to_delete)} stale points.")
+
+    def is_safe_spot(self) -> bool:
+        """
+        Heuristic: Is the robot currently in a 'polite' resting location?
+        1. Near a wall or object (within 15-40cm).
+        2. Not blocking a narrow passage (checked via local grid density).
+        """
+        # 1. Check proximity to nearest obstacle
+        min_dist = 1000.0
+        for pos, ts in self.grid.items():
+            ox, oy = pos[0]*50, pos[1]*50
+            dist = math.sqrt((ox - self.robot_pos[0])**2 + (oy - self.robot_pos[1])**2)
+            if dist < min_dist: min_dist = dist
+        
+        # Too far from wall (exposed) or too close (collision/cramped)
+        if min_dist > 500 or min_dist < 100:
+            return False
+            
+        # 2. Check occupancy density in a 40cm radius
+        nearby_points = 0
+        radius_cm = 40
+        for dx in range(-int(radius_cm/5), int(radius_cm/5) + 1):
+            for dy in range(-int(radius_cm/5), int(radius_cm/5) + 1):
+                check_pos = (int(self.robot_pos[0]/50) + dx, int(self.robot_pos[1]/50) + dy)
+                if check_pos in self.grid:
+                    nearby_points += 1
+        
+        # If too many points (e.g. > 15), it's likely a crowded area or corner
+        if nearby_points > 15:
+            return False
+            
+        return True
+
+    def is_near_wall(self) -> bool:
+        """Returns True if any mapped points are within 40cm of the robot"""
+        for pos, ts in self.grid.items():
+            ox, oy = pos[0]*50, pos[1]*50 # grid is in 5cm units, pos is index
+            dist = math.sqrt((ox - self.robot_pos[0])**2 + (oy - self.robot_pos[1])**2)
+            if dist < 400: # 400mm = 40cm
+                return True
+        return False

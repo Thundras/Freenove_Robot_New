@@ -200,7 +200,27 @@ class WebServer:
                 
             return jsonify(status)
 
-            return jsonify({"pattern": "off", "color": [0,0,0]})
+        @self.app.route('/api/mood/energy/<val>', methods=['POST'])
+        def set_energy_override(val):
+            logger.info(f"Energy override request: {val}%")
+            if self.intelligence and "mood" in self.intelligence.context:
+                try:
+                    # val might be an integer or float string
+                    float_val = float(val)
+                    self.intelligence.context["mood"].override_energy = float_val / 100.0
+                    return jsonify({"status": "ok", "energy": float_val})
+                except ValueError:
+                    return jsonify({"status": "error", "message": "Invalid numeric value"}), 400
+            return jsonify({"status": "error", "message": "Intelligence/Mood not ready"}), 503
+
+        @self.app.route('/api/mood/energy/auto', methods=['POST'])
+        def clear_energy_override():
+            logger.info("Energy override cleared (Auto mode)")
+            if self.intelligence and "mood" in self.intelligence.context:
+                self.intelligence.context["mood"].override_energy = None
+                return jsonify({"status": "ok"})
+            return jsonify({"status": "error", "message": "Intelligence/Mood not ready"}), 503
+
 
         @self.app.route('/api/faces', methods=['GET'])
         def get_faces():

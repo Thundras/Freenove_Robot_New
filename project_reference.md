@@ -50,21 +50,20 @@ Measurements are in **millimeters (mm)**.
   - **Walk**: 4-beat stable gait (FL:0.0, FR:0.5, RL:0.75, RR:0.25).
   - **Trot**: 2-beat diagonal gait (FL:0.0, FR:0.5, RL:0.5, RR:0.0).
 
-## 4. Intelligence & Personality
+## 4. Intelligence & Personality (Behavior DNA)
+The robot's decision logic is driven by a dynamic, YAML-configurable **Behavior Tree (BT)**.
 
-### Behavior Tree (BT)
-Atomic actions (Leafs) organized into Selectors (Priority) and Sequences (Logic).
-- **Parallel Root**: Runs `ExpressMood`, `AutoLevel` (Trunk stabilization), and `ActiveLogic` (Goal-driven) concurrently.
-
-### Mood System (`brain/mood.py`)
-- **Energy**: Decays over a **2-hour period**.
-- **Normalization**: Emotions (`Excitement`, `Comfort`) return to baseline at **0.005 units/sec**.
-- **Baselines**: Excitement=0.3, Comfort=0.7, Aggression=0.0.
+- **Dynamic DNA (`behaviors.yaml`)**: The entire tree is defined in an external config, allowing for real-time personality tuning.
+- **Weighted Selection**: Decisions can be stochastic (e.g., "70% Explore, 30% Sniff"), making behavior feel organic and unpredictable.
+- **Sensor Inhibition**: Behaviors can actively "mask" robot features (e.g., the robot ignores ball detection while in Security Mode).
+- **Secondary Emotions**: Naturalistic layers (breathing, shivering, joy) are additive and blended on top of any active pose via the GaitSequencer.
+- **Spatial Politeness**: The robot uses `MappingManager.is_safe_spot()` to ensure it only sits or lies down in "safe" (out-of-the-way) locations.
+- **Short-term Memory**: The robot remembers seen persons/objects for up to **10 seconds** after they leave the field of view.
 
 ### Vision AI
-- **Gestures**: `COME` (3+ fingers), `SIT` (2), `DOWN` (1), `AWAY` (0/Fist).
-- **Stabilization**: DIS assumes 45° FOV. Tilt-servo compensates for body pitch to keep gaze level. This works in tandem with **Body Auto-Leveling** for maximum stability.
+- **Gestures**: `COME` (3+ fingers), `SIT` (2), `DOWN` (1), `AWAY` (0). Gated by `gesture_trust_threshold`.
+- **Stabilization**: DIS assumes 45° FOV. Tilt-servo compensates for body pitch to keep gaze level. This works in tandem with **Body Auto-Leveling**.
 
 ## 5. System Configuration
-- **Hot-Reload**: The main loop checks `config.yaml` every **2 seconds** for disk changes and reloads automatically.
+- **Hot-Reload**: The main loop checks `behaviors.yaml` and `config.yaml` for disk changes and reloads the brain/config automatically (on detected mtime change).
 - **Pi 3+ Profile**: 50Hz Loop, 50mm SLAM resolution, and Async MQTT publishing are enforced for resource management.

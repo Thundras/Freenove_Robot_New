@@ -737,3 +737,34 @@ class AutoLevel(Leaf):
                 logger.debug(f"AutoLevel: Compensing Roll:{comp_roll:.1f} Pitch:{comp_pitch:.1f}")
             
         return True
+
+class SniffAnimation(Leaf):
+    """Expressive Behavior: Robot lowers its head and 'sniffs' the ground"""
+    def __init__(self, name, context):
+        super().__init__(name)
+        self.context = context
+        self.start_time = time.time()
+
+    def run(self) -> bool:
+        gait = self.context.get("gait")
+        if not gait: return False
+        
+        elapsed = time.time() - self.start_time
+        # Sniff cycle: Lower pitch, then subtle left/right head movements
+        if elapsed < 1.0:
+            # Lowering head
+            gait.update_body_pose("pitch", -15 * elapsed)
+            gait.update_body_pose("z", -10 * elapsed)
+        elif elapsed < 4.0:
+            # Sniffing (wobble)
+            cycle = elapsed - 1.0
+            wobble_yaw = math.sin(cycle * 10) * 8
+            wobble_pitch = -15 + math.sin(cycle * 15) * 3
+            gait.update_body_pose("yaw", wobble_yaw)
+            gait.update_body_pose("pitch", wobble_pitch)
+            gait.update_body_pose("z", -10)
+        else:
+            # Done
+            return False
+            
+        return True

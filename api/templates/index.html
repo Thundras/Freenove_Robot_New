@@ -749,10 +749,16 @@
                                 <span>Energie</span> <span id="mood-energy-pct">100%</span>
                             </div>
                             <div
-                                style="background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; overflow: hidden;">
+                                style="background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; overflow: hidden; margin-bottom: 5px;">
                                 <div id="mood-energy-bar"
                                     style="width: 100%; height: 100%; background: #10b981; transition: width 0.5s;">
                                 </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="range" min="0" max="100" value="100" id="energy-sim-slider"
+                                    style="flex: 1; height: 3px;" onchange="simulateEnergy(this.value)">
+                                <button class="btn-ctrl" style="padding: 2px 8px; font-size: 0.6rem; height: 18px;"
+                                    onclick="setAutoEnergy()">Auto</button>
                             </div>
                         </div>
                         <div class="mood-bar-wrapper">
@@ -1438,6 +1444,14 @@
         function changeHeight(val) {
             document.getElementById('height-val').innerText = val + 'mm';
             fetch('/api/height/' + val, { method: 'POST' });
+        }
+        function simulateEnergy(val) {
+            fetch('/api/mood/energy/' + val, { method: 'POST' })
+                .then(() => updateStatus());
+        }
+        function setAutoEnergy() {
+            fetch('/api/mood/energy/auto', { method: 'POST' })
+                .then(() => updateStatus());
         }
         function updateBodyPose(key, val) {
             const data = {};

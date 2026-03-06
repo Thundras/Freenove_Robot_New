@@ -279,6 +279,10 @@ class VisionProcess(multiprocessing.Process):
         face_recognizer_path = os.path.join(os.path.dirname(__file__), "models", "face_recognition_sface.onnx")
         face_analyzer = FaceAnalyzer(face_detector_path, face_recognizer_path)
 
+        # Pre-initialize variables used in the loop
+        soft_stab = self.software_stab
+        remap_params = None
+        
         parent_pid = os.getppid()
         while self.running.is_set():
             # Check for stop request or orphan state
@@ -330,7 +334,7 @@ class VisionProcess(multiprocessing.Process):
                             ((x, y), radius) = cv2.minEnclosingCircle(c)
                             if radius > 10: # Minimum size
                                 # Normalize coordinates
-                                h_frame, w_frame = frame.shape[:2]
+                                try:
                                     # Normalize coordinates relative to stabilized frame if possible
                                     final_x, final_y = x / w_frame, y / h_frame
                                     if soft_stab and remap_params:
@@ -406,6 +410,7 @@ class VisionProcess(multiprocessing.Process):
                                     # Marker's yaw relative to camera
                                     marker_yaw_rel = math.atan2(-rmat[0, 2], rmat[2, 2])
                                     
+                                    try:
                                         # Correct angle for stabilized frame
                                         corner_center = np.mean(marker_corners_2d, axis=0) # [x, y]
                                         if soft_stab and remap_params:
@@ -422,6 +427,7 @@ class VisionProcess(multiprocessing.Process):
                                             "angle": angle_rel,
                                             "marker_yaw": marker_yaw_rel # Orientation of the marker itself
                                         })
+                                    except Exception: pass
 
                     # --- AI STEP 1: Gesture Recognition (MediaPipe Tasks API) ---
                     if do_ai and hand_landmarker is not None:

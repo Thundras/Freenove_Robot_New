@@ -9,6 +9,7 @@ from .behaviors import AvoidObstacles, SmartExplore, ReactToPerson, FollowPerson
 from .vision import VisionProcess
 from .mapping import MappingManager
 from .mood import MoodManager
+from .bt_factory import BehaviorFactory
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +221,10 @@ class IntelligenceController:
             "system_mode": "autonomous", # autonomous, manual, sit, down
             "target_tilt": 90,
             "play_interest": 1.0, # Initial: Fully motivated
+            "energy": 1.0, # Phase 1: New survival metric
+            "time": time.time(),
+            "inhibited_features": set(), # For Sensor Inhibition
+            "mapping": None, # Will be set below
             "gesture_trust_threshold": config.get("system.gesture_trust_threshold", 0.1),
             "mood": MoodManager()
         }
@@ -259,66 +264,17 @@ class IntelligenceController:
         self.last_update_ts = time.time()
         
         # BT Setup
+        self.context["mapping"] = self.mapping
+        self.behavior_file = os.path.join(os.path.dirname(__file__), "behaviors.yaml")
+        self.last_bt_mtime = 0
+        self.factory = BehaviorFactory(self.context)
         self.root = self.setup_behavior_tree()
 
     def setup_behavior_tree(self):
-        """Construct the robot's main behavior tree"""
-        # Node instances
-        self.sensors["intelligence"] = self
-        
-        # 1. Safety & System (Highest Priority)
-        avoid = AvoidObstacles("AvoidObstacles", self.sensors)
-        gesture = HandleGesture("HandleGesture", self.context)
-        
-        # 2. Emotional/Biological Layer (Parallel)
-        # These always run: update mood, stabilize trunk, etc.
-        express = ExpressMood("ExpressMood", self.context)
-        autolevel = AutoLevel("AutoLevel", self.context)
-        
-        # 3. Reactive Behaviors
-        react_face = ReactToFace("ReactToFace", self.context)
-        react_person = ReactToPerson("ReactToPerson", self.context)
-        ball = PlayWithBall("PlayWithBall", self.context)
-        social = DogSocialInteraction("DogSocialInteraction", self.context)
-        
-        # 4. Long-term Task / Explore
-        follow = FollowPerson("FollowPerson", self.context)
-        explore = SmartExplore("SmartExplore", self.gait, self.context)
-        ambient = AmbientLook("AmbientLook", self.context)
-        idle = Idle("IdleAnimation", self.gait)
-        
-        # Security Nodes
-        security_alert = AlarmPulse("AlarmPulse", self.context)
-        security_monitor = SecurityMonitor("SecurityMonitor", self.context)
-        alarm_branch = Sequence("AlarmBranch", [security_monitor, security_alert])
-        
-        # --- TREE HIERARCHY ---
-        
-        # Interaction Selector: Priority of who/what to interact with
-        interaction = Selector("InteractionBranch", [
-            follow,         # explicit follow mode
-            react_face,     # recognize friends/strangers
-            react_person,   # general person detection
-            ball,           # play with ball
-            social          # dog social
-        ])
-        
-        # Main Active Branch: Decisions about movement/tasks
-        active_logic = Selector("ActiveLogic", [
-            avoid, 
-            alarm_branch, 
-            gesture, 
-            interaction, 
-            explore, 
-            ambient, 
-            idle
-        ])
-        
-        # The ROOT is a Parallel node:
-        # It runs ExpressMood, AutoLevel, and ActiveLogic
-        root = Parallel("MoodBrain", [express, autolevel, active_logic], success_threshold=1)
-        
-        return root
+        """Construct the robot's DNA-driven behavior tree from YAML"""
+        logger.info(f"Loading/Reloading Behavior DNA from {self.behavior_file}")
+        self.last_bt_mtime = os.path.getmtime(self.behavior_file) if os.path.exists(self.behavior_file) else 0
+        return self.factory.build_tree_from_file(self.behavior_file)
 
     def start(self):
         self.vision.start()
@@ -327,6 +283,26 @@ class IntelligenceController:
     def update(self):
         """Standard update loop (called from main)"""
         now = time.time()
+        self.context["time"] = now
+        
+        # Reset per-tick state
+        self.gait.clear_additive_layers()
+        self.context["inhibited_features"].clear()
+        
+        # Persistence Logic: Clear "last_seen" items if they are too old (> 10s)
+        for key in ["last_object_detection", "last_face"]:
+            item = self.context.get(key)
+            if item and now - item.get("timestamp", 0) > 10.0:
+                self.context[key] = None
+
+        # Hot-Reload Logic
+        try:
+            mtime = os.path.getmtime(self.behavior_file)
+            if mtime > self.last_bt_mtime:
+                logger.info("Behavior DNA modified! Hot-reloading...")
+                self.root = self.setup_behavior_tree()
+        except:
+            pass
         
         while not self.result_queue.empty():
             data = self.result_queue.get()
@@ -395,7 +371,15 @@ class IntelligenceController:
         # --- SLAM: Odometry update ---
         # --- MOOD: Update emotional states ---
         dt = now - self.last_update_ts
-        self.context["mood"].update(dt)
+        
+        # Extract Battery Percentage if available
+        bat_pct = None
+        if self.sensors and "battery" in self.sensors:
+            b_data = self.sensors["battery"].get_data()
+            if b_data:
+                bat_pct = getattr(b_data, "percentage", None)
+
+        self.context["mood"].update(dt, battery_percent=bat_pct)
         self.last_update_ts = now
         
         if self.gait:

@@ -84,6 +84,10 @@ class GaitSequencer:
         self.look_at_pitch = 0.0 # Body gaze offset
         self.stab_roll = 0.0 # IMU Stabilization Offset
         self.stab_pitch = 0.0 # IMU Stabilization Offset
+        
+        # DNA Layer Stacking
+        self.additive_layers: Dict[str, Dict[str, float]] = {} # e.g. {"Breathing": {"y": 2.0}}
+        
         self.smoothing_speed = 3.0 # Rad or mm per second
         
         self.step_length = 40.0
@@ -170,10 +174,18 @@ class GaitSequencer:
         self.look_at_yaw = yaw
         self.look_at_pitch = pitch
 
+    def add_additive_layer(self, layer_name: str, params: Dict[str, float]):
+        """Adds or updates an additive motion layer (e.g. breathing)"""
+        self.additive_layers[layer_name] = params
+
     def set_stabilization(self, roll: float, pitch: float):
         """Directly sets high-frequency stabilization offsets (additive, no smoothing)"""
         self.stab_roll = roll
         self.stab_pitch = pitch
+
+    def clear_additive_layers(self):
+        """Clears all dynamic motion layers (called at start of BT tick)"""
+        self.additive_layers.clear()
 
     def update(self, dt: float):
         # 1. Handle Ramping (Speed)
@@ -263,9 +275,22 @@ class GaitSequencer:
         p = math.radians(self.current_body_pose["pitch"] + self.stab_pitch + self.look_at_pitch)
         y = math.radians(self.current_body_pose["yaw"] + self.look_at_yaw)
         
+        # DNA Phase: Blend additive layers into rotations
+        for layer in self.additive_layers.values():
+            r += math.radians(layer.get("roll", 0.0))
+            p += math.radians(layer.get("pitch", 0.0))
+            y += math.radians(layer.get("yaw", 0.0))
+        
+        # Base offsets + auto CoM + manual look-at
         off_x = self.current_body_pose["x"] + self.auto_com_x
         off_y = self.current_body_pose["y"]
         off_z = self.current_body_pose["z"] + self.auto_com_z
+        
+        # Add layer offsets (X, Y, Z)
+        for layer in self.additive_layers.values():
+            off_x += layer.get("x", 0.0)
+            off_y += layer.get("y", 0.0)
+            off_z += layer.get("z", 0.0)
 
         # Rotation Matrices
         # Rx (Roll) around X
