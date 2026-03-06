@@ -1,7 +1,36 @@
-# Freenove Robot - Behavior DNA Template
-# -------------------------------------
-# Use this file to define the robot's personality and logic flow.
-# Supports dynamic expressions ($), weighted randomness, and spatial checks.
+# ==============================================================================
+# FREENOVE ROBOT - BEHAVIOR DNA GUIDE
+# ==============================================================================
+# This file defines the robot's "Personality". It uses a Behavior Tree (BT)
+# structure where Nodes are evaluated every tick (~20Hz).
+#
+# 📖 CORE CONCEPTS:
+# -----------------
+# 1. COMPOSITES (Flow Control):
+#    - Selector: Runs children until one succeeds (OR logic).
+#    - Sequence: Runs children until one fails (AND logic).
+#    - Parallel: Runs all children concurrently.
+#    - WeightedSelector: Picks one child based on probabilistic weights.
+#
+# 2. EXPRESSIONS ($):
+#    Strings containing 'mood.', 'energy', or 'sin/cos' are evaluated dynamically.
+#    Available variables: mood.energy, mood.excitement, mood.comfort, energy (0-1), 
+#    time (seconds), last_face.trust (0-1), system_mode.
+#
+# 3. NODE REFERENCE & PARAMETERS:
+#    - FollowPerson:   [follow_dist (mm), speed (0-1), kp_pan, kp_tilt]
+#    - AvoidObstacles: [avoid_dist (cm), turn_speed]
+#    - SmartExplore:   [speed, max_walk_time, rest_time, wall_dist]
+#    - ReactToFace:    [stranger_threshold, friend_threshold, stranger_avoid_dist]
+#    - PlayWithBall:   [min_interest, close_dist, approach_dist, speed]
+#    - AmbientLook:    [interval, min_tilt, max_tilt, peek_factor]
+#    - ExpressMood:    [energy_pitch_coeff, excitement_threshold, wobble_amp_scale]
+#    - SniffAnimation: [max_pitch, max_sink, yaw_amp]
+#    - AutoLevel:      [strength (0-1), enabled (bool)]
+#
+# 💡 TIP: You can use "disable_features: ['ball', 'gestures']" in any node 
+#         params to inhibit other behaviors while that node is active.
+# ==============================================================================
 
 version: "1.0"
 
@@ -15,8 +44,13 @@ root:
     # --- LAYER 1: PASSIVE / SYSTEM (Always Running) ---
     - type: ExpressMood
       name: "PassiveMood"
+      params:
+        energy_pitch_coeff: -10.0
+        energy_height_coeff: -15.0
+        excitement_threshold: 0.6
+        wobble_freq_base: 2.0
+        wobble_amp_scale: 5.0
     
-    # NEW: Additive Atmospheric Layers (Breathing, Heartbeat, etc.)
     - type: AdditiveLayer
       name: "Breathing"
       condition: "energy > 0.1"
@@ -27,13 +61,22 @@ root:
     - type: AutoLevel
       name: "TrunkStabilization"
       condition: "config.system.auto_leveling == True"
+      params:
+        strength: 0.6 # 0.0 to 1.0 compensation strength
 
     # --- LAYER 2: ACTIVE LOGIC (Priority Driven) ---
     - type: Selector
       name: "ActiveDecisionLayer"
       children:
         
-        # 1. EMERGENCIES / ALARMS
+        # 1. SAFETY: Avoid Obstacles (Highest Priority)
+        - type: AvoidObstacles
+          name: "CollisionAvoidance"
+          params:
+            avoid_dist: 25.0 # cm
+            turn_speed: 0.5
+
+        # 2. EMERGENCIES / ALARMS
         - type: Sequence
           name: "AlarmResponse"
           condition: "mode == 'alarm'"
@@ -41,16 +84,24 @@ root:
             - type: AlarmPulse
             - type: SecurityMonitor
               params:
-                speed: "0.5 + mood.aggression" # Aggressive pursuit
-                pose: "aggressive"
-                disable_features: ["ball", "gestures"] # Focus only on intruder
+                speed: "0.5 + mood.aggression * 0.2"
+                pursuit_dist: 500 # mm
+                kp_pan: 2.5
+                disable_features: ["ball", "gestures"]
 
-        # 2. SOCIAL & INTERACTION
+        # 3. GESTURE CONTROL (Mid Priority)
+        - type: HandleGesture
+          name: "CommandInput"
+          params:
+            persistence: 3 # Requirement for frame consistency
+            trust_threshold: 0.45 # Social filter for commands
+
+        # 4. SOCIAL & INTERACTION
         - type: Selector
-          name: "InteractionBranch"
+          name: "SocialInteractionBranch"
           children:
             
-            # Happy Friend Approach
+            # Known Friends (High Trust)
             - type: Sequence
               name: "WelcomeFriend"
               condition: "last_face.trust > 0.8"
@@ -58,38 +109,41 @@ root:
                 - type: SetPose
                   params: { pose: "playful" }
                 - type: AdditiveLayer
-                  name: "HappyWag" # A joyful body "wag"
+                  name: "HappyWag"
                   params:
-                    yaw: "sin(time * 15) * 5" # Fast jitter
-                    roll: "sin(time * 15) * 3"
+                    yaw: "sin(time * 15) * 5"
                 - type: FollowPerson
                   params: 
-                    speed_mod: "1.0 + mood.excitement" # Run to them!
-            
-            # Observer / Safety Branch for People
-            - type: Selector
-              name: "PersonObserver"
-              condition: "last_object.label == 'person'"
+                    follow_dist: 600
+                    speed: "0.4 + mood.excitement * 0.3"
+                    kp_pan: 2.2
+
+            # Acquaintances (Medium Trust)
+            - type: Sequence
+              name: "WelcomeAcquaintance"
+              condition: "last_face.trust > 0.3"
               children:
-                
-                # Option A: "Safety Bubble" - Back away if stranger is too close
-                - type: SetSpeed
-                  name: "BackAwayFromStranger"
-                  condition: "last_object.dist < 800 and last_face.trust < 0.3"
-                  params:
-                    speed: -0.4 # Walk backwards
-                    pose: "cautious" # Lower stance
-                    disable_features: ["gestures"]
-
-                # Option B: Just watch curiously from a distance
+                - type: SetPose
+                  params: { pose: "normal" }
                 - type: FollowPerson
-                  name: "WatchFromAfar"
+                  name: "SocialGaze"
                   params:
-                    pose: "if last_face.trust < 0.3 then 'cautious' else 'normal'"
-                    speed_mod: 0.0 # Stay still
-                    disable_features: ["gestures"]
+                    follow_dist: 1200
+                    speed: 0.0 # Just watch, don't move closer
+                    kp_pan: 1.5
 
-        # 3. IDLE / ROAMING (The "Soul" Layer - Random Choice)
+            # Play with Ball (If no people interest)
+            - type: PlayWithBall
+              name: "BallPlay"
+              condition: "mood.excitement > 0.4"
+              params:
+                min_interest: 0.2
+                passive_interest: 0.5
+                close_dist: 350
+                approach_dist: 900
+                speed: 0.5
+
+        # 5. IDLE / ROAMING (The "Soul" Layer)
         - type: WeightedSelector
           name: "IdleMix"
           children:
@@ -99,44 +153,31 @@ root:
                 weight: 60
                 type: SmartExplore
                 params:
-                  speed: "0.2 + energy * 0.4" # Faster when energetic
+                  speed: "0.2 + energy * 0.4"
+                  max_walk_time: 120.0
+                  rest_time: 300.0 # 5 minutes
+                  wall_dist: 45.0 # cm
             
-            # 20% Chance: Sniff around (Only if comfortable)
+            # 20% Chance: Sniff around
             - choice:
                 weight: 20
-                condition: "mood.comfort > 0.6"
+                condition: "mood.comfort > 0.5"
                 type: SniffAnimation
-                params: { pose: "low_sniff" }
-
-            # 10% Chance: Dynamic Stretch (Custom Pose)
-            - choice:
-                weight: 10
-                type: SetCustomPose
                 params:
-                  y: -20 # Crouch slightly
-                  pitch: "-10 - mood.excitement * 10" # Look up more if excited
-                  roll: "sin(time * 2) * 10" # Subtle sway
-
-            # 20% Chance: Rest (If tired AND in a safe spot)
+                  max_pitch: -18
+                  max_sink: -12
+                  yaw_amp: 10
+            
+            # 20% Chance: Ambient Look Around
             - choice:
                 weight: 20
-                condition: "energy < 0.3"
-                type: Selector
-                name: "RestingLogic"
-                children:
-                  # Option A: Lie down if near a wall
-                  - type: SetPose
-                    condition: "mapping.is_near_wall()"
-                    params: { pose: "lie_down" }
-                  
-                  # Option B: Just sit if not near wall
-                  - type: SetPose
-                    params: { pose: "sit" }
-                  
-                  # Option C: Just be sleepy
-                  - type: SetPose
-                    params: { pose: "tired" }
+                type: AmbientLook
+                params:
+                  interval: 3.5
+                  min_tilt: 75
+                  max_tilt: 105
+                  peek_factor: 0.25
 
-        # 4. FALLBACK: IDLE
+        # 6. FALLBACK: IDLE
         - type: Idle
           name: "SystemIdle"

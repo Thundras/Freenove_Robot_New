@@ -455,6 +455,12 @@
             box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
         }
 
+        /* Hide J1 bone in 2D Profile (Shoulder pointing into screen) */
+        .joint[id*="joint_1"]>.bone {
+            opacity: 0;
+            width: 0 !important;
+        }
+
         .joint-dot {
             position: absolute;
             left: -8px;
@@ -466,6 +472,12 @@
             border-radius: 50%;
             z-index: 10;
             box-shadow: 0 0 10px white;
+        }
+
+        /* Hide J1 (Shoulder) in 2D Profile */
+        [id*="joint_1"]>.bone,
+        [id*="joint_1"]>.joint-dot {
+            display: none !important;
         }
 
         .joint {
@@ -602,16 +614,10 @@
             color: white;
         }
 
-        .viz-container.view-iso {
-            transform: rotateX(-30deg) rotateY(-45deg);
-        }
-
-        .viz-container.view-side {
-            transform: rotateX(0deg) rotateY(-90deg);
-        }
-
-        .viz-container.view-front {
-            transform: rotateX(0deg) rotateY(0deg);
+        /* 2D Side-View Only (Calibration Mode) */
+        .viz-container {
+            transform: scale(1.0);
+            transform-style: flat;
         }
 
         /* Toast Notifications */
@@ -1753,9 +1759,6 @@
                         <div class="servo-card-header">
                             <span>${key.toUpperCase()}</span>
                             <div class="view-switcher">
-                                <button class="view-btn active" onclick="setView('${key}', 'iso')" title="Isometric">3D</button>
-                                <button class="view-btn" onclick="setView('${key}', 'side')" title="Side View">S</button>
-                                <button class="view-btn" onclick="setView('${key}', 'front')" title="Front View">F</button>
                             </div>
                             <div class="servo-stats-bar">
                                 <span class="stat-item">1: <b id="stat-${key}-joint_1">0°</b></span>
@@ -1763,43 +1766,31 @@
                                 <span class="stat-item">3: <b id="stat-${key}-joint_3">0°</b></span>
                             </div>
                         </div>
-                        <div class="leg-viz" id="leg-${key}">
-                            <div class="viz-container view-iso" id="viz-${key}">
-                                <div class="ground-plane"></div>
-                                <div class="body-base"></div>
-                                <!-- Joint 1: Rotates around Z-axis (Roll) -->
-                                <div class="joint" id="joint-${key}-joint_1" style="left: 0;">
-                                    <div class="axis-debug">
-                                        <div class="axis-line axis-x"><span class="axis-label">X</span></div>
-                                        <div class="axis-line axis-y"><span class="axis-label">Y</span></div>
-                                        <div class="axis-line axis-z"><span class="axis-label">Z</span></div>
-                                    </div>
-                                    <div class="bone" style="width: 25px; background: #94a3b8;"></div>
-                                    <div class="joint-dot"></div>
-                                    
-                                    <!-- Joint 2: Parented to Shoulder, rotates around local X-axis (Pitch) -->
-                                    <div class="joint" id="joint-${key}-joint_2" style="left: 25px;">
-                                        <div class="axis-debug">
-                                            <div class="axis-line axis-x"><span class="axis-label">X</span></div>
-                                            <div class="axis-line axis-y"><span class="axis-label">Y</span></div>
-                                            <div class="axis-line axis-z"><span class="axis-label">Z</span></div>
-                                        </div>
-                                        <div class="bone" style="width: 55px; height: 12px; left: 0; top: -6px;"></div>
-                                        <div class="joint-dot"></div>
+                                <div class="leg-viz" id="leg-${key}">
+                                    <!-- Use scaleX(-1) for left side to mirror the view -->
+                                    <div class="viz-container" id="viz-${key}" style="transform: ${key.includes('l') ? 'scaleX(-1)' : 'none'};">
+                                        <div class="ground-plane"></div>
+                                        <div class="body-base"></div>
                                         
-                                        <!-- Joint 3: Parented to Upper Leg, rotates around local X-axis (Pitch) -->
-                                        <div class="joint" id="joint-${key}-joint_3" style="left: 55px;">
-                                            <div class="axis-debug">
-                                                <div class="axis-line axis-x"><span class="axis-label">X</span></div>
-                                                <div class="axis-line axis-y"><span class="axis-label">Y</span></div>
-                                                <div class="axis-line axis-z"><span class="axis-label">Z</span></div>
-                                            </div>
-                                            <div class="bone" style="width: 60px; height: 12px; left: 0; top: -6px;"></div>
+                                        <!-- Joint 1: Shoulder -->
+                                        <div class="joint" id="joint-${key}-joint_1">
+                                            <div class="bone" id="bone-${key}-joint_1" style="width: 30px; height: 10px; background: #94a3b8;"></div>
                                             <div class="joint-dot"></div>
+                                            
+                                            <!-- Joint 2: Hip (Relative to J1) -->
+                                            <div class="joint" id="joint-${key}-joint_2">
+                                                <div class="bone" id="bone-${key}-joint_2" style="width: 50px; height: 10px;"></div>
+                                                <div class="joint-dot"></div>
+                                                
+                                                <!-- Joint 3: Knee (Relative to J2) -->
+                                                <div class="joint" id="joint-${key}-joint_3">
+                                                    <div class="bone" id="bone-${key}-joint_3" style="width: 60px; height: 10px;"></div>
+                                                    <div class="joint-dot"></div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
                         </div>
                     </div>
                 `;
@@ -1819,37 +1810,24 @@
                         const valSpan = document.getElementById(`stat-${leg}-${part}`);
 
                         if (joint && valSpan) {
-                            // Use raw_angle for visualization to bypass hardware trim/offsets
-                            const displayAngle = (sData.raw_angle !== undefined) ? sData.raw_angle : sData.angle;
-                            let angle = displayAngle - 90; // Relative to neutral
+                            const dAngle = (sData.raw_angle !== undefined) ? sData.raw_angle : sData.angle;
+                            const isL = leg.includes('l');
 
-                            const baseRot = isLeft ? 180 : 0;
-
+                            // PURE 2D SIDE PROFILE LOGIC
+                            // J1 is the "shoulder" pivot (completely hidden in CSS)
                             if (part === 'joint_1') {
-                                angle_coxa = angle;
-                                angle_sum = angle;
-                                // Joint 1: Shoulder Roll (Side tilt)
-                                joint.style.transform = `rotateY(${baseRot}deg) rotateX(${angle}deg)`;
+                                joint.style.transform = `rotate(0deg)`;
                             } else if (part === 'joint_2') {
-                                // Joint 2: Hip Pitch (Forward/Backward)
-                                // In this bone orientation, rotateY moves the leg in the side-longitudinal plane.
-                                joint.style.transform = `rotateY(${angle}deg)`;
+                                // 90 is Horizontal, 180 is Vertical DOWN
+                                const j2Rot = dAngle - 90;
+                                joint.style.transform = `translateX(0px) rotate(${j2Rot}deg)`;
                             } else if (part === 'joint_3') {
-                                // Joint 3: Knee Pitch (Flexion/Extension)
-                                joint.style.transform = `rotateY(${180 - displayAngle}deg)`;
+                                // 180 is Straight (0deg relative), 90 is Bent Down (90deg relative)
+                                const j3Rel = 180 - dAngle;
+                                joint.style.transform = `translateX(50px) rotate(${j3Rel}deg)`;
                             }
 
-                            valSpan.innerText = `${Math.round(displayAngle)}°`;
-
-                            // billboarding: counter-rotate parent hierarchical transforms
-                            // Container is -30X, -45Y. Base is baseRotY.
-                            // Container is -30X, -45Y. Base is baseRotY.
-                            let totalRotZ = angle_sum;
-                            if (part === 'coxa') totalRotZ = angle;
-
-                            // To keep label flat: counter baseRotY, coxa angleZ, femur/tibia angleZ, and container X/Y
-                            // This is an approximation for legibility
-                            valSpan.style.transform = `rotateZ(${-totalRotZ}deg) rotateY(${-(baseRot - 45)}deg) rotateX(30deg)`;
+                            valSpan.innerText = `${Math.round(dAngle)}°`;
                         }
                     }
                 });
@@ -1864,21 +1842,6 @@
         }
         pollStatus();
         updateFaces();
-        function setView(leg, view) {
-            const viz = document.getElementById(`viz-${leg}`);
-            if (!viz) return;
-
-            // Update classes
-            viz.classList.remove('view-iso', 'view-side', 'view-front');
-            viz.classList.add(`view-${view}`);
-
-            // Update buttons in the parent card
-            const card = viz.closest('.servo-card');
-            const buttons = card.querySelectorAll('.view-btn');
-            buttons.forEach(btn => {
-                btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${view}'`));
-            });
-        }
     </script>
 </body>
 

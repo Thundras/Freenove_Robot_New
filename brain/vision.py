@@ -752,6 +752,9 @@ class VisionProcess(multiprocessing.Process):
                                 cv2.rectangle(frame, (int(left), int(top)), (int(right), int(bottom)), obj["color"], 2)
                                 
                                 label_str = f"{obj['label']} {obj['dist']}mm"
+                                if obj['label'] == 'PERSON' and self.current_identity:
+                                    label_str = f"{self.current_identity.upper()} {obj['dist']}mm"
+                                    
                                 cv2.putText(frame, label_str, (int(left), int(top)-10), 
                                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, obj["color"], 2)
                                             

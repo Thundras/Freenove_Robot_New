@@ -4,13 +4,11 @@ import numpy as np
 from typing import Dict, Tuple, List
 
 class LegOscillator:
-    def __init__(self, phase_offset: float = 0.0, base_x: float = 0.0, base_z: float = 0.0):
+    def __init__(self, phase_offset: float = 0.0):
         self.phase = phase_offset
         self.phase_offset = phase_offset
         self.target_phase_offset = phase_offset
         self.blending_speed = 1.2 # Hz (how fast to shift rhythm)
-        self.base_x = base_x
-        self.base_z = base_z
         self.idle_offset_x = 0.0
         self.idle_offset_y = 0.0
         self.idle_offset_z = 0.0
@@ -49,7 +47,7 @@ class LegOscillator:
         
         x = self.idle_offset_x
         y = base_y + self.idle_offset_y
-        z = self.base_z + self.idle_offset_z
+        z = 0.0 + self.idle_offset_z
         
         # Normalized phase within the semi-cycle
         if effective_phase < 0.5:
@@ -62,6 +60,7 @@ class LegOscillator:
             stance_phase = (effective_phase - 0.5) / 0.5 # 0.0 to 1.0
             x += step_length/2 - stance_phase * step_length
             
+        # z is already 0.0 + idle_offset_z (Local Frame)
         return x, y, z
 
 class GaitSequencer:
@@ -94,10 +93,17 @@ class GaitSequencer:
         self.step_height = 20.0
         
         self.oscillators = {
-            "fl": LegOscillator(0.0, base_x=70.0, base_z=-40.0),
-            "fr": LegOscillator(0.0, base_x=70.0, base_z=40.0),
-            "rl": LegOscillator(0.0, base_x=-70.0, base_z=-40.0),
-            "rr": LegOscillator(0.0, base_x=-70.0, base_z=40.0)
+            "fl": LegOscillator(0.0),
+            "fr": LegOscillator(0.0),
+            "rl": LegOscillator(0.0),
+            "rr": LegOscillator(0.0)
+        }
+        # Mounting Offsets (Absolute from Body Center)
+        self.mount_offsets = {
+            "fl": (70.0, -40.0), # (X, Z)
+            "fr": (70.0, 40.0),
+            "rl": (-70.0, -40.0),
+            "rr": (-70.0, 40.0)
         }
         self.current_gait = "idle"
         # Gait Definitions (Phase offsets)
@@ -111,9 +117,8 @@ class GaitSequencer:
         self._apply_gait("idle")
 
     def set_base_height(self, height: float):
-        """Sets the height of the belly from the ground. 
-        IK y = height + shoulder_to_body_offset"""
-        self.base_height = height + self.shoulder_to_body_offset
+        """Sets the height of the belly from the ground."""
+        self.base_height = height
 
     def _apply_gait(self, gait_name: str):
         if gait_name in self.gaits:
@@ -328,8 +333,9 @@ class GaitSequencer:
 
             # C. Transform to Body-Relative
             # Foot in World (Absolute MM from center of neutral floor-contact body)
-            # P_foot_world_y is negative because ly is distance down.
-            P_foot_world = np.array([osc.base_x + lx, -ly, osc.base_z + lz])
+            # Use mount_offsets as the Single Source of Truth for Z-placement
+            mx, mz = self.mount_offsets[name]
+            P_foot_world = np.array([mx + lx, -ly, mz + lz])
             
             # Body displacement from neutral
             P_body = np.array([off_x, off_y, off_z])
@@ -341,8 +347,9 @@ class GaitSequencer:
             P_local = R.T @ P_rel
             
             # Find vector from the ROTATED shoulder joint to the foot
-            # The neutral shoulder is at (osc.base_x, 0, osc.base_z) in local body frame
-            P_shoulder_local = np.array([osc.base_x, 0, osc.base_z])
+            # Use the SAME mount_offsets as defined above - the Single Source of Truth
+            mx, mz = self.mount_offsets[name]
+            P_shoulder_local = np.array([mx, 0, mz])
             P_final = P_local - P_shoulder_local
             
             # Invert Y back to "distance down" for the IK engine

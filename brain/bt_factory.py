@@ -123,26 +123,27 @@ class BehaviorFactory:
             # Some composites might need context for condition evaluation
             node = node_class(node_name, children)
 
-        # 3. Handle ParameterLeaf (SetSpeed, SetPose, etc.)
+        # 3. Handle ParameterLeaf (Actions that use self.current_params)
         elif issubclass(node_class, ParameterLeaf):
-            node = node_class(node_name, self.context, params)
+            # Special case for core nodes that might have legacy/odd signatures but are becoming ParameterLeafs
+            if node_type == "AvoidObstacles":
+                # We'll refactor AvoidObstacles to take (name, context, params)
+                node = node_class(node_name, self.context, params)
+            elif node_type == "SmartExplore":
+                node = node_class(node_name, self.context, params)
+            elif node_type == "Idle":
+                 node = node_class(node_name, self.context, params)
+            else:
+                node = node_class(node_name, self.context, params)
 
-        # 4. Handle Standard Behaviors (AvoidObstacles, etc.)
-        # These usually take (name, context) or (name, sensors)
+        # 4. Handle Standard Behaviors (Legacy/Unchanged)
         else:
             try:
-                if node_type == "AvoidObstacles":
-                    node = node_class(node_name, self.context.get("sensors"))
-                elif node_type == "Idle":
-                    node = node_class(node_name, self.context.get("gait"))
-                elif node_type == "SmartExplore":
-                    node = node_class(node_name, self.context.get("gait"), self.context)
-                else:
-                    # Default: name, context
-                    node = node_class(node_name, self.context)
+                # Fallback for nodes that are still just Leaf
+                node = node_class(node_name, self.context)
             except Exception as e:
                 logger.error(f"Error instantiating {node_type}: {e}")
-                node = Idle(f"Error_{node_name}", self.context.get("gait"))
+                node = node_class(node_name, self.context.get("gait")) if "gait" in self.context else node_class(node_name)
 
         # --- CONDITION WRAPPING ---
         if condition:

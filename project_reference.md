@@ -27,16 +27,24 @@ Measurements are in **millimeters (mm)**.
 - **Default Height**: **75mm** (Shoulder to Foot) - Optimized for Pi 3+ stability.
 
 ### Coordinate System (Roll-Pitch-Pitch)
-| Joint | Physical Axis | 90° Stance (Neutral) | Range / Action |
+
+> [!IMPORTANT]
+> **Local Leg Frame**: Coordinate (0,0,0) for each leg is its **Shoulder Joint**. 
+> - **X**: Forward/Backward
+> - **Y**: Vertical (Positive is DOWN from shoulder)
+> - **Z**: Lateral Sway (0 is neutral alignment with shoulder)
+
+| Joint | Physical Axis | 90-90-90 Stance (L-Shape) | 180° Position |
 | :--- | :--- | :--- | :--- |
-| **J1** | **Roll** (X) | 90° (Perpendicular) | > 90°: Tilt Outwards |
-| **J2** | **Pitch** (Z) | 90° (Horizontal) | > 90°: Point Downwards |
-| **J3** | **Pitch** (Z) | 90° (L-shape bend) | 180°: Straight leg |
+| **J1** | **Roll** (X) | 90° (Neutral / Perpendicular) | - |
+| **J2** | **Pitch** (Z) | 90° (**Horizontal**) | 180° (Vertical Down) |
+| **J3** | **Pitch** (Z) | 90° (**Vertical Down**) | 180° (**Straight / Extended**) |
 
 ### Servo Execution & Safety
-- **Clamping**: Safety limits are applied at the **IK Engine** level (for legs) and **Intelligence Layer** (for camera tilt) using `limit_neg/limit_pos`.
-- **Driver Layer**: The `PCA9685Driver` maps IK angles to pulses: `middle + (ik_angle - 90)`.
-- **Calibration Mode**: When `system_mode` is set to `calibrate`, the Behavior Tree is **disabled** to allow manual control and calibration without AI interference.
+- **Clamping**: Safety limits are applied at the **IK Engine** level using `limit_neg/limit_pos`.
+- **Driver Layer**: Maps IK angles to pulses: `middle + (ik_angle - 90)`. 
+- **Mirroring**: Left-side legs are handled by the driver/config (inversion) but visualized as **mirrored** in the dashboard for side-profile comparison.
+- **Source of Truth**: The `PCA9685Driver` maintains the active `current_angles` state, which is the direct source for the Dashboard's "Live Sync".
 
 ## 3. Movement & Gait Control
 - **6-DOF Control**: Body can translate (x,y,z) and rotate (roll,pitch,yaw). Order: Yaw -> Pitch -> Roll.

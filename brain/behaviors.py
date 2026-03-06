@@ -1,17 +1,18 @@
 import logging
 import time
-from .bt_core import Leaf
+from .bt_core import Leaf, ParameterLeaf
 
 logger = logging.getLogger(__name__)
 
-class FollowPerson(Leaf):
-    def __init__(self, name, context):
-        super().__init__(name)
-        self.context = context
+class FollowPerson(ParameterLeaf):
+    def __init__(self, name, context, params):
+        super().__init__(name, context, params)
+        self.last_log_time = 0
 
     def run(self) -> bool:
-        # Pillar 3 Enhancement: Only follow if mode is 'follow'
-        if self.context.get("system_mode") != "follow":
+        self._eval_params()
+        # Relaxed check: Allow following/tracking in both dedicated 'follow' and 'autonomous' modes.
+        if self.context.get("system_mode") not in ["follow", "autonomous"]:
             self.context["gait"].set_look_at(0.0, 0.0)
             # Mandatory state clearing
             if "led" in self.context["sensors"]:
@@ -20,38 +21,35 @@ class FollowPerson(Leaf):
 
         detection = self.context.get("last_object_detection")
         if detection and detection["label"] == "person":
+            # Parametrized values
+            follow_dist = self.current_params.get("follow_dist", 800)
+            max_speed = self.current_params.get("speed", 0.5)
+            kp_pan = self.current_params.get("kp_pan", 2.0)
+            kp_tilt = self.current_params.get("kp_tilt", 15.0)
+
             dist = detection.get("dist", 1000)
-            center_x = detection.get("center_x", 0.5) # 0.0 to 1.0
+            center_x = detection.get("center_x", 0.5)
             
-            # --- PROPORTIONAL CENTERING LOGIC ---
-            # center_x is 0.0 to 1.0. Error is center_x - 0.5.
             error_x = center_x - 0.5
-            # Kp_pan: P-gain for horizontal turning. 1.0 means it turns at full speed if object is at the edge.
-            turn_rate = error_x * 2.0 
+            turn_rate = error_x * kp_pan
             
-            # --- ACTIVE VERTICAL GAZE (Tilt) ---
-            # center_y is 0.0 to 1.0. If object is high (center_y < 0.3), tilt up. 
             center_y = detection.get("center_y", 0.5)
-            # Use self.context.get("target_tilt", 90) as base.
             current_tilt = self.context.get("target_tilt", 90)
-            # Adjust tilt proportionally to center_y error
             error_y = center_y - 0.5
-            # Kp_tilt: P-gain for camera tilt.
             if abs(error_y) > 0.05:
-                self.context["target_tilt"] = current_tilt + (error_y * 15.0) # Move 15 degrees max per frame correction
+                self.context["target_tilt"] = current_tilt + (error_y * kp_tilt)
             
-            if dist > 800:
+            if dist > follow_dist:
                 if time.time() - self.last_log_time > 2.0:
                     logger.info(f"Following person (Dist: {dist}mm, Turn: {turn_rate:.2f})")
                     self.last_log_time = time.time()
-                self.context["gait"].set_target_speed(0.5, turn_rate)
+                self.context["gait"].set_target_speed(max_speed, turn_rate)
             else:
                 self.context["gait"].set_target_speed(0.0, turn_rate)
             
             # --- EXPRESSIVE BODY GAZE ---
-            # Use body yaw to "peer" towards the person
-            body_yaw = error_x * 15.0 # Up to 15 degrees body yaw 
-            body_pitch = (center_y - 0.5) * 10.0 # Lean body up/down
+            body_yaw = error_x * 15.0
+            body_pitch = (center_y - 0.5) * 10.0
             self.context["gait"].set_look_at(body_yaw, body_pitch)
             
             return True
@@ -60,20 +58,17 @@ class FollowPerson(Leaf):
         self.context["gait"].set_look_at(0.0, 0.0)
         return False
 
-class ReactToPerson(Leaf):
-    def __init__(self, name, context):
-        super().__init__(name)
-        self.context = context
-
+class ReactToPerson(ParameterLeaf):
     def run(self) -> bool:
-        """Simple reaction when a person is seen in autonomous mode"""
+        self._eval_params()
         if self.context.get("system_mode") != "autonomous":
             return False
 
+        react_dist = self.current_params.get("react_dist", 1200)
         detection = self.context.get("last_object_detection")
         if detection and detection["label"] == "person":
             dist = detection.get("dist", 1000)
-            if dist < 1200:
+            if dist < react_dist:
                 logger.info(f"Reacting to person at {dist}mm! Stopping to say hi.")
                 self.context["gait"].set_target_speed(0.0)
                 if "buzzer" in self.context["sensors"]:
@@ -81,21 +76,21 @@ class ReactToPerson(Leaf):
                 return True
         return False
 
-class HandleGesture(Leaf):
+class HandleGesture(ParameterLeaf):
     """
     Advanced Vision: Toggles interaction modes based on gestures.
     WAVE/COME -> Start following.
     STOP/AWAY -> Go to idle.
     """
-    def __init__(self, name, context):
-        super().__init__(name)
-        self.context = context
+    def __init__(self, name, context, params):
+        super().__init__(name, context, params)
         self.gesture_buffer = [] # Persistence filter
         self.last_handled_timestamp = 0 # Track unique vision updates
         if "system_mode" not in self.context:
             self.context["system_mode"] = "autonomous"
 
     def run(self) -> bool:
+        self._eval_params()
         gesture = self.context.get("last_gesture")
         if not gesture:
             self.gesture_buffer = []
@@ -105,7 +100,9 @@ class HandleGesture(Leaf):
         timestamp = gesture.get("timestamp", 0)
         current_mode = self.context.get("system_mode", "autonomous")
 
-        # Persistence Filter: Only act if it's a NEW vision update and seen for 3 frames
+        # Persistence Filter: Only act if it's a NEW vision update and seen for X frames
+        persistence = self.current_params.get("persistence", 3)
+        
         if timestamp <= self.last_handled_timestamp:
             return False # Already processed this specific vision update
             
@@ -117,7 +114,7 @@ class HandleGesture(Leaf):
             if "buzzer" in self.context["sensors"]:
                 self.context["sensors"]["buzzer"].beep(0.01) # Ultra-short click
         
-        if len(self.gesture_buffer) < 3: # Back to 3 for better stability
+        if len(self.gesture_buffer) < persistence:
             return False
             
         if not all(g == label for g in self.gesture_buffer):
@@ -137,8 +134,8 @@ class HandleGesture(Leaf):
         # Pillar 8: Social Security - Use configurable trust threshold
         face_data = self.context.get("last_face")
         trust = face_data.get("trust", 0.0) if face_data else 0.0
-        # Restored secure threshold (User's goal)
-        threshold = self.context.get("gesture_trust_threshold", 0.45) 
+        # Parametrized trust threshold
+        threshold = self.current_params.get("trust_threshold", 0.45) 
         
         if trust < threshold and label in ["COME", "SIT", "DOWN"]:
             # Log as warning to make it stand out
@@ -156,16 +153,12 @@ class HandleGesture(Leaf):
             if "buzzer" in self.context["sensors"]:
                 self.context["sensors"]["buzzer"].beep(0.1)
         elif label == "AWAY":
-            # Only reset if we are currently in follow mode.
-            # Do NOT reset 'sit' or 'down' automatically, as no-hand detection (AWAY) 
-            # would immediately override the user's manual pose command.
             if current_mode == "follow":
                 logger.info("Gesture: AWAY detected! Stopping follow, resuming AUTONOMOUS.")
                 self.context["system_mode"] = "autonomous"
                 self.context["gait"].set_target_speed(0.0)
                 self.context["gait"].set_pose("normal")
             else:
-                # Silently ignore AWAY if we are in sit/down/manual
                 return False
         elif label == "SIT":
             logger.info("Gesture: SIT detected! Entering STANDBY mode.")
@@ -186,55 +179,62 @@ class HandleGesture(Leaf):
         self.context["last_gesture"] = None
         return True
 
-class AvoidObstacles(Leaf):
-    def __init__(self, name, sensor_manager):
-        super().__init__(name)
-        self.sensors = sensor_manager
-
+class AvoidObstacles(ParameterLeaf):
     def run(self) -> bool:
-        ultrasonic = self.sensors.get("ultrasonic")
+        self._eval_params()
+        
+        ultrasonic = self.context["sensors"].get("ultrasonic")
         if not ultrasonic:
             return False
             
         data = ultrasonic.get_data()
         distance = data.metadata.get("distance_cm", 100.0)
         
-        if distance < 20.0:
+        avoid_dist = self.current_params.get("avoid_dist", 20.0)
+        
+        if distance < avoid_dist:
             # Check mode: Don't move if sitting or down
-            current_mode = self.sensors.get("intelligence").context.get("system_mode", "autonomous")
+            current_mode = self.context.get("system_mode", "autonomous")
             if current_mode in ["sit", "down", "manual"]:
                 logger.debug(f"Obstacle at {distance}cm, but suppressed due to mode: {current_mode}")
                 return False
 
             logger.warning(f"Obstacle detected at {distance}cm! Avoiding...")
             # Logic for avoidance: Stop or turn
-            self.sensors.get("gait").set_target_speed(0.0, 0.5) # Turn on spot
+            turn_speed = self.current_params.get("turn_speed", 0.5)
+            self.context.get("gait").set_target_speed(0.0, turn_speed) # Turn on spot
             return True 
         
-        return False # Failure (No avoidance needed)
+        return False
 
-class SmartExplore(Leaf):
+class SmartExplore(ParameterLeaf):
     """
     Battery-aware exploration: 
-    - Walks for max 2 minutes.
-    - Sits/Lies down for ~10 minutes when near a wall/obstacle.
+    - Walks for max duration.
+    - Sits/Lies down for designated time when near a wall/obstacle.
     """
-    def __init__(self, name, gait, context):
-        super().__init__(name)
-        self.gait = gait
-        self.context = context
+    def __init__(self, name, context, params):
+        super().__init__(name, context, params)
         self.state = "WALKING"
         self.state_start_time = time.time()
         self.last_turn_time = 0
 
     def run(self) -> bool:
+        self._eval_params()
         if self.context.get("system_mode") != "autonomous":
             return False
 
+        gait = self.context.get("gait")
         now = time.time()
         elapsed = now - self.state_start_time
         
-        # 1. State: WALKING (Max 2 mins)
+        # Parametrized values
+        walk_speed = self.current_params.get("speed", 0.4)
+        max_walk_time = self.current_params.get("max_walk_time", 120.0)
+        rest_time = self.current_params.get("rest_time", 600.0)
+        wall_dist = self.current_params.get("wall_dist", 40.0)
+        
+        # 1. State: WALKING
         if self.state == "WALKING":
             # Check for obstacles to trigger resting
             ultrasonic = self.context["sensors"].get("ultrasonic")
@@ -244,8 +244,8 @@ class SmartExplore(Leaf):
                 if data:
                     distance = data.metadata.get("distance_cm", 100.0)
 
-            # Rule: Only rest if near a wall (< 40cm) and walked for at least 15s
-            if distance < 40.0 and elapsed > 15.0:
+            # Rule: Only rest if near a wall and walked for at least 15s
+            if distance < wall_dist and elapsed > 15.0:
                 import random
                 if random.random() < 0.4: # 40% chance to settle down
                     self.state = random.choice(["SITTING", "LYING"])
@@ -253,42 +253,36 @@ class SmartExplore(Leaf):
                     logger.info(f"SmartExplore: Found a cozy spot at {distance}cm. State -> {self.state}")
                     return True
             
-            # Max walk time reached? Just stop and rest even if no wall? 
-            # User said "nur neben hindernissen". So if no wall, just keep walking/turning.
-            if elapsed > 120.0:
+            if elapsed > max_walk_time:
                 # Force a turn to find a different wall
                 if now - self.last_turn_time > 5.0:
                     logger.info("SmartExplore: Walking timeout. Searching for a wall...")
-                    self.gait.set_target_speed(0.1, 0.6)
+                    gait.set_target_speed(0.1, 0.6)
                     self.last_turn_time = now
                 return True
 
             # Normal walking
-            self.gait.set_target_speed(0.4)
-            # Walking slightly drains interest (fatigue)
+            gait.set_target_speed(walk_speed)
             interest = self.context.get("play_interest", 1.0)
             self.context["play_interest"] = max(0.0, interest - 0.0005)
             return True
 
-        # 2. States: SITTING / LYING (~10 mins)
+        # 2. States: SITTING / LYING
         elif self.state in ["SITTING", "LYING"]:
-            # Resting restores interest
             interest = self.context.get("play_interest", 1.0)
             self.context["play_interest"] = min(1.0, interest + 0.002)
             
-            if elapsed > 600.0: # 10 minutes
-                logger.info("SmartExplore: Rest finished. Time to stretch! State -> WALKING")
+            if elapsed > rest_time:
+                logger.info(f"SmartExplore: Rest finished ({self.state}). State -> WALKING")
                 self.state = "WALKING"
                 self.state_start_time = now
-                self.gait.set_pose("normal")
+                gait.set_pose("normal")
                 return True
 
             # Maintain posture
-            self.gait.set_target_speed(0.0)
+            gait.set_target_speed(0.0)
             pose = "sit" if self.state == "SITTING" else "down"
-            self.gait.set_pose(pose)
-            
-            # Subtle feedback: occasional look around via AmbientLook is already running
+            gait.set_pose(pose)
             return True
 
         return False
@@ -306,18 +300,12 @@ class AlarmPulse(Leaf):
             self.context["sensors"]["buzzer"].on()
         return True
 
-class DogSocialInteraction(Leaf):
+class DogSocialInteraction(ParameterLeaf):
     """
     Social Behavior: Responds to other dogs with social cues.
-    - If dog is uninterested (moving away): Stop/Stay passive.
-    - If dog is close: Crouch (submissive posture).
-    - If dog is medium distance: Watch curiously.
     """
-    def __init__(self, name, context):
-        super().__init__(name)
-        self.context = context
-
     def run(self) -> bool:
+        self._eval_params()
         if self.context.get("system_mode") not in ["autonomous", "follow"]:
             if "led" in self.context["sensors"]:
                 self.context["sensors"]["led"].clear()
@@ -325,60 +313,54 @@ class DogSocialInteraction(Leaf):
             
         detection = self.context.get("last_object_detection")
         if not detection or detection["label"] != "dog":
-            # Reset pose if no dog detected
             self.context["gait"].set_pose("normal")
             if "led" in self.context["sensors"]:
-                # Only clear if we were the one who set it (heuristic)
-                # For now, just clear to be safe
                 self.context["sensors"]["led"].clear()
-            # Reset look-at if dog lost
             self.context["gait"].set_look_at(0.0, 0.0)
             return False
 
         interest = detection.get("interest", "unknown")
         dist = detection.get("dist", 2000)
         center_x = detection.get("center_x", 0.5)
+        
+        # Parametrized gains
+        kp_pan = self.current_params.get("kp_pan", 1.5)
+        kp_tilt = self.current_params.get("kp_tilt", 10.0)
 
-        # Centering logic for dogs (Proportional)
+        # Centering logic for dogs
         error_x = center_x - 0.5
-        turn_rate = error_x * 1.5
+        turn_rate = error_x * kp_pan
         
         # Vertical head tracking
         center_y = detection.get("center_y", 0.5)
         error_y = center_y - 0.5
         if abs(error_y) > 0.05:
             current_tilt = self.context.get("target_tilt", 90)
-            self.context["target_tilt"] = current_tilt + (error_y * 10.0)
+            self.context["target_tilt"] = current_tilt + (error_y * kp_tilt)
 
         # --- EXPRESSIVE BODY GAZE ---
-        body_yaw = error_x * 12.0 # Subtler than person following
+        body_yaw = error_x * 12.0
         body_pitch = error_y * 8.0
         self.context["gait"].set_look_at(body_yaw, body_pitch)
 
         if interest == "low":
-            logger.info("Social: Other dog seems uninterested. Staying passive.")
             self.context["gait"].set_target_speed(0.0, turn_rate)
             self.context["gait"].set_pose("normal")
             return True
 
-        if dist < 600:
-            logger.info(f"Social: Dog is very close ({dist}mm). Adopting submissive pose.")
+        if dist < self.current_params.get("submissive_dist", 600):
             self.context["gait"].set_pose("submissive")
             self.context["gait"].set_target_speed(0.0, turn_rate)
-        elif dist < 1200:
-            logger.info(f"Social: Dog detected at {dist}mm. Watching curiously.")
+        elif dist < self.current_params.get("curious_dist", 1200):
             self.context["gait"].set_pose("normal")
             self.context["gait"].set_target_speed(0.0, turn_rate)
         
         return True
 
-class PlayWithBall(Leaf):
+class PlayWithBall(ParameterLeaf):
     """Interacts with the red ball"""
-    def __init__(self, name, context):
-        super().__init__(name)
-        self.context = context
-
     def run(self):
+        self._eval_params()
         if self.context.get("system_mode") not in ["autonomous", "follow"]:
             if "led" in self.context["sensors"]:
                 self.context["sensors"]["led"].clear()
@@ -386,63 +368,65 @@ class PlayWithBall(Leaf):
 
         detection = self.context.get("last_object_detection")
         if detection and detection["label"] == "ball":
+            # Parametrized values
+            min_interest = self.current_params.get("min_interest", 0.1)
+            passive_interest = self.current_params.get("passive_interest", 0.4)
+            close_dist = self.current_params.get("close_dist", 400)
+            approach_dist = self.current_params.get("approach_dist", 1000)
+            follow_speed = self.current_params.get("speed", 0.5)
+            
             interest = self.context.get("play_interest", 1.0)
             dist = detection.get("dist", 2000)
             center_x = detection.get("center_x", 0.5)
             center_y = detection.get("center_y", 0.5)
 
             # --- MOOD LOGIC: Interest Thresholds ---
-            if interest < 0.1:
-                # Disinterested: Ignore ball completely
+            if interest < min_interest:
                 return False
             
-            # Common: Always keep the gaze (Head Tracking) if interest > 0.1
+            # Common: Always keep the gaze (Head Tracking)
             error_y = center_y - 0.5
             if abs(error_y) > 0.05:
                 current_tilt = self.context.get("target_tilt", 90)
                 self.context["target_tilt"] = current_tilt + (error_y * 12.0)
 
             # --- EXPRESSIVE BODY GAZE ---
+            error_x = center_x - 0.5
             body_yaw = error_x * 15.0
             body_pitch = error_y * 10.0
             self.context["gait"].set_look_at(body_yaw, body_pitch)
 
-            if interest < 0.4:
+            if interest < passive_interest:
                 # Passive Interest: Just watch with the head, don't move
-                error_x = center_x - 0.5
-                # We could also use this to tilt a bit left/right if we had a pan servo, 
-                # but for now we just STAY PUT.
                 if int(time.time() * 20) % 40 == 0:
                     logger.debug(f"Play: Watching ball curiously (Low interest: {interest:.2f})")
                 self.context["gait"].set_target_speed(0.0)
                 return True
 
             # Full Interest: Active Play
-            # Centering logic (Proportional)
-            error_x = center_x - 0.5
             turn_rate = error_x * 1.8
             
             # Consume interest while actively playing
             self.context["play_interest"] = max(0.0, interest - 0.02)
 
-            if dist < 400:
+            if dist < close_dist:
                 if int(time.time() * 10) % 20 == 0:
                     logger.debug(f"Play: Ball is close ({dist}mm). Nudging!")
                 self.context["gait"].set_pose("playful")
                 self.context["gait"].set_target_speed(0.2, turn_rate)
-            elif dist < 1000:
+            elif dist < approach_dist:
                 logger.info(f"Play: Approaching ball ({dist}mm).")
                 self.context["gait"].set_pose("normal")
                 self.context["gait"].set_target_speed(0.4, turn_rate)
             else:
-                self.context["gait"].set_target_speed(0.5, turn_rate)
+                self.context["gait"].set_target_speed(follow_speed, turn_rate)
             
             # Ball Detection Feedback (Green Spinning)
             if "led" in self.context["sensors"]:
                 self.context["sensors"]["led"].animate("spin", (0, 255, 0), speed=1.5)
             
-            # Happy triple-beep when discovery (Emotional response)
-            if dist < 400 and "buzzer" in self.context["sensors"]:
+            # Happy triple-beep
+            if dist < close_dist and "buzzer" in self.context["sensors"]:
                 if not hasattr(self, "_last_happy_beep") or time.time() - self._last_happy_beep > 10.0:
                     self.context["sensors"]["buzzer"].beep(0.05)
                     time.sleep(0.05)
@@ -455,31 +439,20 @@ class PlayWithBall(Leaf):
 
             return True
         
-        # Reset LED if ball lost
+        # Reset if ball lost
         if "led" in self.context["sensors"]:
             self.context["sensors"]["led"].clear()
-            
-        # Reset look-at if ball lost
         self.context["gait"].set_look_at(0.0, 0.0)
-            
-        # Reset pose if ball lost and in autonomous/follow
         if self.context.get("system_mode") in ["autonomous", "follow"]:
             self.context["gait"].set_pose("normal")
-
         return False
 
-class ReactToFace(Leaf):
+class ReactToFace(ParameterLeaf):
     """
     Social Behavior: Responds to people based on Trust Score
-    - Trusted (> 0.8): Follow closely.
-    - Acquaintance (0.3 - 0.8): Watch curiously.
-    - Stranger (< 0.3): Stay cautious, back away.
     """
-    def __init__(self, name, context):
-        super().__init__(name)
-        self.context = context
-
     def run(self) -> bool:
+        self._eval_params()
         if self.context.get("system_mode") not in ["autonomous", "follow"]:
             self.context["gait"].set_look_at(0.0, 0.0)
             return False
@@ -494,9 +467,13 @@ class ReactToFace(Leaf):
         center_x = detection.get("center_x", 0.5)
         trust = face_data.get("trust", 0.0) if face_data else 0.0
         
+        # Parametrized thresholds
+        stranger_thresh = self.current_params.get("stranger_threshold", 0.3)
+        friend_thresh = self.current_params.get("friend_threshold", 0.8)
+        
         # Centering logic (Proportional)
         error_x = center_x - 0.5
-        turn_rate = error_x * 1.5
+        turn_rate = error_x * self.current_params.get("kp_pan", 1.5)
         
         # --- EXPRESSIVE BODY GAZE ---
         center_y = detection.get("center_y", 0.5)
@@ -506,26 +483,28 @@ class ReactToFace(Leaf):
         self.context["gait"].set_look_at(body_yaw, body_pitch)
         
         # Case 1: STRANGER (Caution)
-        if trust < 0.3:
+        if trust < stranger_thresh:
             if "led" in self.context["sensors"]:
                 self.context["sensors"]["led"].animate("pulse", (255, 100, 0)) # Yellowish
             
-            if dist < 1200: # Stranger is too close!
-                logger.info("ReactToFace: Stranger detected. Backing away for safety.")
+            avoid_dist = self.current_params.get("stranger_avoid_dist", 1200)
+            if dist < avoid_dist:
                 self.context["gait"].set_target_speed(-0.3, turn_rate)
             else:
                 self.context["gait"].set_target_speed(0.0, turn_rate)
             return True
 
         # Case 2: ACQUAINTANCE (Curiosity)
-        elif trust < 0.8:
+        elif trust < friend_thresh:
             if "led" in self.context["sensors"]:
                 self.context["sensors"]["led"].animate("pulse", (0, 255, 255)) # Cyan
             
-            # Keep a respectful distance
-            if dist > 1500:
+            far_dist = self.current_params.get("acquaintance_far_dist", 1500)
+            near_dist = self.current_params.get("acquaintance_near_dist", 1000)
+            
+            if dist > far_dist:
                 self.context["gait"].set_target_speed(0.3, turn_rate)
-            elif dist < 1000:
+            elif dist < near_dist:
                 self.context["gait"].set_target_speed(-0.2, turn_rate)
             else:
                 self.context["gait"].set_target_speed(0.0, turn_rate)
@@ -536,25 +515,23 @@ class ReactToFace(Leaf):
             if "led" in self.context["sensors"]:
                 self.context["sensors"]["led"].animate("pulse", (0, 255, 0)) # Green
             
-            # Follow closely
-            if dist > 800:
+            follow_dist = self.current_params.get("friend_follow_dist", 800)
+            personal_space = self.current_params.get("friend_personal_space", 400)
+            
+            if dist > follow_dist:
                 self.context["gait"].set_target_speed(0.5, turn_rate)
-            elif dist < 400:
+            elif dist < personal_space:
                 self.context["gait"].set_target_speed(-0.1, turn_rate)
             else:
                 self.context["gait"].set_target_speed(0.0, turn_rate)
             return True
 
-        # Reset look-at if person lost
         self.context["gait"].set_look_at(0.0, 0.0)
         return False
 
-class SecurityMonitor(Leaf):
-    def __init__(self, name, context):
-        super().__init__(name)
-        self.context = context
-
+class SecurityMonitor(ParameterLeaf):
     def run(self) -> bool:
+        self._eval_params()
         if self.context.get("system_mode") != "alarm":
             self.context["gait"].set_look_at(0.0, 0.0)
             return False
@@ -568,8 +545,9 @@ class SecurityMonitor(Leaf):
             center_x = detection.get("center_x", 0.5)
 
             # Centering logic (Intruder Pursuit)
+            kp_pan = self.current_params.get("kp_pan", 2.0)
             error_x = center_x - 0.5
-            turn_rate = error_x * 2.0 # More aggressive turning
+            turn_rate = error_x * kp_pan
             
             # --- AGGRESSIVE BODY GAZE ---
             center_y = detection.get("center_y", 0.5)
@@ -577,14 +555,13 @@ class SecurityMonitor(Leaf):
             body_yaw = error_x * 20.0 # Wide aggressive gaze
             body_pitch = error_y * 15.0
             self.context["gait"].set_look_at(body_yaw, body_pitch)
-            if center_x < 0.35:
-                turn_rate = -0.5
-            elif center_x > 0.65:
-                turn_rate = 0.5
 
-            if dist > 600:
+            pursuit_dist = self.current_params.get("pursuit_dist", 600)
+            pursuit_speed = self.current_params.get("speed", 0.6)
+
+            if dist > pursuit_dist:
                 logger.warning(f"SECURITY ALERT: Pursuing intruder at {dist}mm!")
-                self.context["gait"].set_target_speed(0.6, turn_rate)
+                self.context["gait"].set_target_speed(pursuit_speed, turn_rate)
             else:
                 logger.warning("SECURITY ALERT: Intruder cornered!")
                 self.context["gait"].set_target_speed(0.0, turn_rate)
@@ -595,40 +572,39 @@ class SecurityMonitor(Leaf):
         self.context["gait"].set_target_speed(0.0)
         return False
 
-class Idle(Leaf):
-    def __init__(self, name, gait_sequencer):
-        super().__init__(name)
-        self.gait = gait_sequencer
-
+class Idle(ParameterLeaf):
     def run(self) -> bool:
         """Fallback: Stop movement if no other behavior is active"""
-        if self.gait.current_speed > 0.01:
+        self._eval_params()
+        gait = self.context.get("gait")
+        if gait and gait.current_speed > 0.01:
             logger.debug("Idle: Stopping persistent movement.")
-            self.gait.set_target_speed(0.0, 0.0)
+            gait.set_target_speed(0.0, 0.0)
         return True
 
-class AmbientLook(Leaf):
+class AmbientLook(ParameterLeaf):
     """Adds 'curiosity' by moving the head around when idle"""
-    def __init__(self, name, context):
-        super().__init__(name)
-        self.context = context
+    def __init__(self, name, context, params):
+        super().__init__(name, context, params)
         self.last_move = 0
         self.target = 90
 
     def run(self) -> bool:
+        self._eval_params()
         # Only look around if in autonomous and not busy with objects
         if self.context.get("system_mode") != "autonomous":
             self.context["gait"].set_look_at(0.0, 0.0)
             return False
         if self.context.get("last_object_detection"):
-            # Don't reset here, let the other behavior handle it or keep it for interest
             return False
             
         now = time.time()
-        if now - self.last_move > 4.0: # Every 4 seconds
-            # Random tilt between 70 and 110
+        interval = self.current_params.get("interval", 4.0)
+        if now - self.last_move > interval:
             import random
-            self.target = random.randint(70, 110)
+            low = self.current_params.get("min_tilt", 70)
+            high = self.current_params.get("max_tilt", 110)
+            self.target = random.randint(low, high)
             self.last_move = now
             logger.debug(f"AmbientLook: Curious tilt to {self.target}")
         
@@ -639,83 +615,69 @@ class AmbientLook(Leaf):
             self.context["target_tilt"] = current + step
             
             # Add subtle body yaw "peek" synced with head
-            peek_yaw = (current - 90) * 0.2 # 20% of head tilt
+            peek_factor = self.current_params.get("peek_factor", 0.2)
+            peek_yaw = (current - 90) * peek_factor
             self.context["gait"].set_look_at(peek_yaw, 0.0)
             
-        return False # Return false to allow other low-prio behaviors to run (like Idle)
-class ExpressMood(Leaf):
+        return False
+class ExpressMood(ParameterLeaf):
     """
     Adds subtle, expressive body language using 6-DOF posing.
-    Influences height, roll (wobble), and pitch (gaze bias) based on mood.
     """
-    def __init__(self, name, context):
-        super().__init__(name)
-        self.context = context
+    def __init__(self, name, context, params):
+        super().__init__(name, context, params)
         self.phase = 0.0
 
     def run(self) -> bool:
+        self._eval_params()
         mood = self.context.get("mood")
         if not mood or not self.context.get("gait"):
             return False
 
-        dt = 0.05 # Approximate loop dt
+        dt = 0.05 
         self.phase += dt
         
         # 1. Energy (Focus/Gaze)
-        # Low energy -> Lower head (Pitch) and slightly lower body
         energy = mood.get("energy")
-        pitch_bias = (1.0 - energy) * -10.0 # Look down up to 10 deg
-        height_offset = (1.0 - energy) * -15.0 # Sink up to 15mm
+        pitch_bias = (1.0 - energy) * self.current_params.get("energy_pitch_coeff", -10.0)
+        height_offset = (1.0 - energy) * self.current_params.get("energy_height_coeff", -15.0)
         
         # 2. Excitement (Vibrancy/Wobble)
-        # High excitement -> Subtle happy roll wobble (breathing style but faster)
         excitement = mood.get("excitement")
         roll_wobble = 0.0
-        if excitement > 0.6:
-            wobble_freq = 2.0 + (excitement * 2.0) # 2-4 Hz
-            wobble_amp = (excitement - 0.6) * 5.0 # Up to 2 degrees
-            roll_wobble = np.sin(self.phase * wobble_freq) * wobble_amp
+        excitement_thresh = self.current_params.get("excitement_threshold", 0.6)
+        if excitement > excitement_thresh:
+            wobble_freq = self.current_params.get("wobble_freq_base", 2.0) + (excitement * self.current_params.get("wobble_freq_scale", 2.0))
+            wobble_amp = (excitement - excitement_thresh) * self.current_params.get("wobble_amp_scale", 5.0)
+            roll_wobble = math.sin(self.phase * wobble_freq) * wobble_amp
 
         # 3. Comfort (Presence/Stability)
-        # Low comfort (anxiety) -> Crouch more (lower height), stay compact
         comfort = mood.get("comfort")
-        crouch = (1.0 - comfort) * -20.0 # Sink up to 20mm more
+        crouch = (1.0 - comfort) * self.current_params.get("comfort_crouch_coeff", -20.0)
         
         # Apply to Gait Engine
         gait = self.context["gait"]
         
-        # Base height is usually 105. Combine offsets.
         total_height_adj = height_offset + crouch
-        # We don't want to sink too low
         final_height = max(60, gait.base_height + total_height_adj)
         
-        # Merge expressive pose into current target_pose
-        # Note: gait.update_body_pose expects a dictionary of keys
         gait.update_body_pose("z", total_height_adj)
         gait.update_body_pose("roll", roll_wobble)
         gait.update_body_pose("pitch", pitch_bias)
         
         return True
 
-class AutoLevel(Leaf):
+class AutoLevel(ParameterLeaf):
     """
     Reactive Stabilization: Uses IMU data to keep the trunk level.
-    Applies counter-tilt (Roll/Pitch) directly to the gait engine.
     """
-    def __init__(self, name, context):
-        super().__init__(name)
-        self.context = context
-        # Access config via the intelligence controller stored in sensors
-        self.intel = context.get("sensors", {}).get("intelligence")
-        self.config = self.intel.config if self.intel else None
-        
     def run(self) -> bool:
+        self._eval_params()
         # Default to enabled if config missing
-        enabled = self.config.get("system.auto_leveling", True) if self.config else True
-        strength = self.config.get("system.auto_leveling_strength", 0.6) if self.config else 0.6
+        enabled = self.current_params.get("enabled", True)
+        strength = self.current_params.get("strength", 0.6)
 
         if not enabled or self.context.get("system_mode") == "calibrate":
-            # Ensure stabilization is reset if disabled
             self.context["gait"].set_stabilization(0.0, 0.0)
             return False
 
@@ -725,46 +687,44 @@ class AutoLevel(Leaf):
 
         data = imu.get_data()
         if data:
-            # Inverse angles to counter-act the measured tilt
-            # If body is rolled 10 deg left, we want to roll 10 deg right relative to legs
             comp_roll = -data.roll * strength
             comp_pitch = -data.pitch * strength
-            
-            # Apply to gait engine
             self.context["gait"].set_stabilization(comp_roll, comp_pitch)
-            
-            if int(time.time() * 2) % 10 == 0: # Occasional log
-                logger.debug(f"AutoLevel: Compensing Roll:{comp_roll:.1f} Pitch:{comp_pitch:.1f}")
             
         return True
 
-class SniffAnimation(Leaf):
+class SniffAnimation(ParameterLeaf):
     """Expressive Behavior: Robot lowers its head and 'sniffs' the ground"""
-    def __init__(self, name, context):
-        super().__init__(name)
-        self.context = context
+    def __init__(self, name, context, params):
+        super().__init__(name, context, params)
         self.start_time = time.time()
 
     def run(self) -> bool:
+        self._eval_params()
         gait = self.context.get("gait")
         if not gait: return False
         
         elapsed = time.time() - self.start_time
+        
+        max_pitch = self.current_params.get("max_pitch", -15)
+        max_sink = self.current_params.get("max_sink", -10)
+        wobble_yaw_amp = self.current_params.get("yaw_amp", 8)
+        wobble_pitch_amp = self.current_params.get("pitch_amp", 3)
+        
         # Sniff cycle: Lower pitch, then subtle left/right head movements
         if elapsed < 1.0:
             # Lowering head
-            gait.update_body_pose("pitch", -15 * elapsed)
-            gait.update_body_pose("z", -10 * elapsed)
+            gait.update_body_pose("pitch", max_pitch * elapsed)
+            gait.update_body_pose("z", max_sink * elapsed)
         elif elapsed < 4.0:
             # Sniffing (wobble)
             cycle = elapsed - 1.0
-            wobble_yaw = math.sin(cycle * 10) * 8
-            wobble_pitch = -15 + math.sin(cycle * 15) * 3
+            wobble_yaw = math.sin(cycle * 10) * wobble_yaw_amp
+            wobble_pitch = max_pitch + math.sin(cycle * 15) * wobble_pitch_amp
             gait.update_body_pose("yaw", wobble_yaw)
             gait.update_body_pose("pitch", wobble_pitch)
-            gait.update_body_pose("z", -10)
+            gait.update_body_pose("z", max_sink)
         else:
-            # Done
             return False
             
         return True
