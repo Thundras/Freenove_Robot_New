@@ -3,6 +3,7 @@ import os
 import threading
 from typing import Any, Dict
 
+
 class ConfigManager:
     def __init__(self, config_path: str = "config/config.yaml"):
         self.config_path = config_path
@@ -14,7 +15,7 @@ class ConfigManager:
     def load_config(self):
         if not os.path.exists(self.config_path):
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
-        
+
         with self._lock:
             self._last_mtime = os.path.getmtime(self.config_path)
             with open(self.config_path, "r") as f:
@@ -23,8 +24,8 @@ class ConfigManager:
     def reload_if_changed(self):
         """Check if config file has changed on disk and reload if necessary"""
         if not os.path.exists(self.config_path):
-            return
-            
+            return False
+
         current_mtime = os.path.getmtime(self.config_path)
         if current_mtime > self._last_mtime:
             print(f"Config change detected on disk. Reloading {self.config_path}...")
@@ -33,14 +34,15 @@ class ConfigManager:
         return False
 
     def get(self, key: str, default: Any = None) -> Any:
-        keys = key.split(".")
-        val = self._config
-        try:
-            for k in keys:
-                val = val[k]
-            return val
-        except (KeyError, TypeError):
-            return default
+        with self._lock:
+            keys = key.split(".")
+            val = self._config
+            try:
+                for k in keys:
+                    val = val[k]
+                return val
+            except (KeyError, TypeError):
+                return default
 
     def set(self, key: str, value: Any):
         """Update a config value in memory (supports dot notation)"""
@@ -58,7 +60,9 @@ class ConfigManager:
         with self._lock:
             try:
                 with open(self.config_path, "w") as f:
-                    yaml.dump(self._config, f, default_flow_style=False, sort_keys=False)
+                    yaml.dump(
+                        self._config, f, default_flow_style=False, sort_keys=False
+                    )
                 return True
             except Exception as e:
                 print(f"Error saving config: {e}")
@@ -66,7 +70,7 @@ class ConfigManager:
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state['_lock']
+        del state["_lock"]
         return state
 
     def __setstate__(self, state):

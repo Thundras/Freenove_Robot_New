@@ -62,7 +62,7 @@
 | ~~P4-4~~ | ~~Battery Low-Voltage Protection~~ | developer | **✅ DONE** | `is_critical()` Methode, config-basierte Thresholds, Auto-Warnungen, 10 Tests bestanden |
 | ~~P4-5~~ | ~~MockIMU Dynamic Data~~ | developer | **✅ DONE** | `set_movement()`, `set_oscillation()`, `set_jitter()`, `reset()` - Camera Stabilization testbar, 10 Tests bestanden |
 | ~~P4-6~~ | ~~Queue Timeout Validation~~ | developer | **✅ DONE** | Config-Optionen hinzugefügt, maxsize/max_items_timeout validiert, 9 Tests bestanden |
-| P4-7 | Thread-Safe Config | developer | backlog | Config Hot-Reload thread-safe machen |
+| ~~P4-7~~ | ~~Thread-Safe Config~~ | developer | **✅ DONE** | `get()` jetzt mit Lock, `reload_if_changed()` returns boolean, 9 Tests bestanden |
 
 ### 🟢 Priorität 5 - CODE QUALITY (LSP Warnings)
 
