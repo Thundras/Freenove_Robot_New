@@ -201,3 +201,33 @@ class FailSafeManager:
             "issues": issues,
             "speed_multiplier": status["speed_multiplier"],
         }
+
+    def get_available_features(self) -> Dict[str, bool]:
+        return {
+            "movement": self.is_safe_for_movement() and not self.is_emergency_stopped(),
+            "vision": not self.active_failsafes.get("vision", False),
+            "face_recognition": not self.active_failsafes.get("vision", False),
+            "obstacle_avoidance": not self.active_failsafes.get("ultrasonic", False),
+            "stabilization": not self.active_failsafes.get("imu", False),
+            "autonomous_mode": (
+                self.is_safe_for_movement()
+                and not self.active_failsafes.get("vision", False)
+            ),
+        }
+
+    def get_degraded_mode(self) -> str:
+        if self.is_emergency_stopped():
+            return "emergency_stop"
+        if self.active_failsafes.get("imu"):
+            return "no_stabilization"
+        if self.active_failsafes.get("ultrasonic"):
+            return "reduced_speed"
+        if self.active_failsafes.get("vision"):
+            return "blind_mode"
+        if self.active_failsafes.get("servo"):
+            return "servos_released"
+        return "normal"
+
+    def is_autonomous_allowed(self) -> bool:
+        features = self.get_available_features()
+        return features["autonomous_mode"]

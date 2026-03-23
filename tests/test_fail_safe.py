@@ -206,3 +206,72 @@ class TestHealthMonitoring:
         fs.trigger_failsafe("ultrasonic", FailSafeState.ULTRASONIC_TIMEOUT)
         report = fs.get_health_report()
         assert report["speed_multiplier"] == 0.5
+
+
+class TestGracefulDegradation:
+    def test_available_features_normal(self):
+        fs = FailSafeManager()
+        features = fs.get_available_features()
+        assert features["movement"] is True
+        assert features["vision"] is True
+        assert features["face_recognition"] is True
+        assert features["obstacle_avoidance"] is True
+        assert features["stabilization"] is True
+        assert features["autonomous_mode"] is True
+
+    def test_available_features_imu_failed(self):
+        fs = FailSafeManager()
+        fs.trigger_failsafe("imu", FailSafeState.IMU_TIMEOUT)
+        features = fs.get_available_features()
+        assert features["movement"] is False
+        assert features["stabilization"] is False
+        assert features["autonomous_mode"] is False
+
+    def test_available_features_vision_failed(self):
+        fs = FailSafeManager()
+        fs.trigger_failsafe("vision", FailSafeState.VISION_DEAD)
+        features = fs.get_available_features()
+        assert features["movement"] is True
+        assert features["vision"] is False
+        assert features["face_recognition"] is False
+        assert features["autonomous_mode"] is False
+
+    def test_available_features_ultrasonic_failed(self):
+        fs = FailSafeManager()
+        fs.trigger_failsafe("ultrasonic", FailSafeState.ULTRASONIC_TIMEOUT)
+        features = fs.get_available_features()
+        assert features["obstacle_avoidance"] is False
+        assert features["autonomous_mode"] is True
+
+    def test_degraded_mode_normal(self):
+        fs = FailSafeManager()
+        assert fs.get_degraded_mode() == "normal"
+
+    def test_degraded_mode_imu_failed(self):
+        fs = FailSafeManager()
+        fs.trigger_failsafe("imu", FailSafeState.IMU_TIMEOUT)
+        assert fs.get_degraded_mode() == "no_stabilization"
+
+    def test_degraded_mode_emergency(self):
+        fs = FailSafeManager()
+        fs.emergency_stop()
+        assert fs.get_degraded_mode() == "emergency_stop"
+
+    def test_degraded_mode_vision(self):
+        fs = FailSafeManager()
+        fs.trigger_failsafe("vision", FailSafeState.VISION_DEAD)
+        assert fs.get_degraded_mode() == "blind_mode"
+
+    def test_is_autonomous_allowed_normal(self):
+        fs = FailSafeManager()
+        assert fs.is_autonomous_allowed() is True
+
+    def test_is_autonomous_allowed_vision_failed(self):
+        fs = FailSafeManager()
+        fs.trigger_failsafe("vision", FailSafeState.VISION_DEAD)
+        assert fs.is_autonomous_allowed() is False
+
+    def test_is_autonomous_allowed_imu_failed(self):
+        fs = FailSafeManager()
+        fs.trigger_failsafe("imu", FailSafeState.IMU_TIMEOUT)
+        assert fs.is_autonomous_allowed() is False
