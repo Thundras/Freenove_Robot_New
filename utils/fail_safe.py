@@ -172,3 +172,32 @@ class FailSafeManager:
                 for name, s in self.sensors.items()
             },
         }
+
+    def get_health_report(self) -> Dict[str, Any]:
+        status = self.get_status()
+        overall_healthy = status["state"] == FailSafeState.NORMAL.value and not any(
+            status["active_failsafes"].values()
+        )
+
+        issues = []
+        for name, sensor_status in status["sensors"].items():
+            if not sensor_status["healthy"]:
+                issues.append(f"{name}_timeout")
+
+        if status["active_failsafes"].get("imu"):
+            issues.append("imu_failed")
+        if status["active_failsafes"].get("ultrasonic"):
+            issues.append("ultrasonic_failed")
+        if status["active_failsafes"].get("vision"):
+            issues.append("vision_dead")
+        if status["active_failsafes"].get("servo"):
+            issues.append("servo_error")
+        if status["active_failsafes"].get("emergency"):
+            issues.append("emergency_stop")
+
+        return {
+            "healthy": overall_healthy,
+            "state": status["state"],
+            "issues": issues,
+            "speed_multiplier": status["speed_multiplier"],
+        }

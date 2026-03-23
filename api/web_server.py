@@ -118,6 +118,13 @@ class WebServer:
                 self.intelligence.fail_safe.reset_emergency()
             return jsonify({"status": "ok", "action": "emergency_reset"})
 
+        @self.app.route("/api/health", methods=["GET"])
+        def get_health():
+            if self.intelligence and hasattr(self.intelligence, "fail_safe"):
+                health = self.intelligence.fail_safe.get_health_report()
+                return jsonify(health)
+            return jsonify({"healthy": True, "issues": [], "state": "unknown"})
+
         @self.app.route("/api/gait/<gait>", methods=["POST"])
         def handle_gait(gait):
             logger.info(f"Gait change manual requested: {gait}")

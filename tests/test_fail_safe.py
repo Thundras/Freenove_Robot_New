@@ -161,3 +161,48 @@ class TestEmergencyStop:
         fs = FailSafeManager()
         fs.emergency_stop("button_pressed")
         assert fs.is_emergency_stopped() is True
+
+
+class TestHealthMonitoring:
+    def test_health_report_normal(self):
+        fs = FailSafeManager()
+        report = fs.get_health_report()
+        assert report["healthy"] is True
+        assert report["issues"] == []
+        assert report["state"] == "normal"
+
+    def test_health_report_with_issues(self):
+        fs = FailSafeManager()
+        fs.trigger_failsafe("imu", FailSafeState.IMU_TIMEOUT)
+        report = fs.get_health_report()
+        assert report["healthy"] is False
+        assert "imu_failed" in report["issues"]
+
+    def test_health_report_emergency_stop(self):
+        fs = FailSafeManager()
+        fs.emergency_stop()
+        report = fs.get_health_report()
+        assert report["healthy"] is False
+        assert "emergency_stop" in report["issues"]
+        assert report["state"] == "emergency_stop"
+
+    def test_health_report_multiple_issues(self):
+        fs = FailSafeManager()
+        fs.trigger_failsafe("imu", FailSafeState.IMU_TIMEOUT)
+        fs.trigger_failsafe("ultrasonic", FailSafeState.ULTRASONIC_TIMEOUT)
+        fs.emergency_stop()
+        report = fs.get_health_report()
+        assert report["healthy"] is False
+        assert len(report["issues"]) >= 3
+        assert "imu_failed" in report["issues"]
+        assert "ultrasonic_failed" in report["issues"]
+        assert "emergency_stop" in report["issues"]
+
+    def test_health_report_speed_multiplier(self):
+        fs = FailSafeManager()
+        report = fs.get_health_report()
+        assert report["speed_multiplier"] == 1.0
+
+        fs.trigger_failsafe("ultrasonic", FailSafeState.ULTRASONIC_TIMEOUT)
+        report = fs.get_health_report()
+        assert report["speed_multiplier"] == 0.5
