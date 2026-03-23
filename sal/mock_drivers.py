@@ -1,4 +1,5 @@
 import time
+import math
 import logging
 from typing import Optional, List, Dict, Any
 from utils.config import ConfigManager
@@ -81,15 +82,91 @@ class MockIMU(ISensor):
             yaw=0.0,
             accel_x=0.0,
             accel_y=0.0,
-            accel_z=1.0,  # 1G
+            accel_z=1.0,
         )
+        self._target_roll = 0.0
+        self._target_pitch = 0.0
+        self._target_yaw = 0.0
+        self._smoothing = 0.1
+        self._jitter = 0.0
+        self._oscillation_freq = 0.0
+        self._oscillation_amp = 0.0
+        self._oscillation_phase = 0.0
+        self._start_time = time.time()
+
+    def set_movement(self, roll: float, pitch: float, yaw: float) -> None:
+        self._target_roll = roll
+        self._target_pitch = pitch
+        self._target_yaw = yaw
+
+    def set_smoothing(self, factor: float) -> None:
+        self._smoothing = max(0.01, min(1.0, factor))
+
+    def set_jitter(self, level: float) -> None:
+        self._jitter = max(0.0, min(10.0, level))
+
+    def set_oscillation(self, freq: float, amplitude: float) -> None:
+        self._oscillation_freq = max(0.0, freq)
+        self._oscillation_amp = max(0.0, amplitude)
+
+    def reset(self) -> None:
+        self._target_roll = 0.0
+        self._target_pitch = 0.0
+        self._target_yaw = 0.0
+        self.data.roll = 0.0
+        self.data.pitch = 0.0
+        self.data.yaw = 0.0
+        self.data.accel_x = 0.0
+        self.data.accel_y = 0.0
+        self.data.accel_z = 1.0
+        self._oscillation_freq = 0.0
+        self._oscillation_amp = 0.0
+        self._start_time = time.time()
 
     def update(self) -> None:
-        # Simulate slight jitter/drift
         self.data.timestamp = time.time()
-        # In a more advanced mock, we would use the last known servo angles
-        # to calculate a simulated orientation
-        pass
+
+        import random
+
+        jitter_x = (
+            random.uniform(-self._jitter, self._jitter) if self._jitter > 0 else 0.0
+        )
+        jitter_y = (
+            random.uniform(-self._jitter, self._jitter) if self._jitter > 0 else 0.0
+        )
+
+        oscillation_offset = 0.0
+        if self._oscillation_freq > 0 and self._oscillation_amp > 0:
+            elapsed = time.time() - self._start_time
+            oscillation_offset = self._oscillation_amp * math.sin(
+                2 * math.pi * self._oscillation_freq * elapsed
+            )
+
+        self.data.roll = self._lerp(
+            self.data.roll,
+            self._target_roll + oscillation_offset + jitter_x,
+            self._smoothing,
+        )
+        self.data.pitch = self._lerp(
+            self.data.pitch,
+            self._target_pitch + oscillation_offset + jitter_y,
+            self._smoothing,
+        )
+        self.data.yaw = self._lerp(
+            self.data.yaw, self._target_yaw + jitter_x, self._smoothing
+        )
+
+        self.data.accel_x = math.sin(math.radians(self.data.roll)) * 9.81
+        self.data.accel_y = math.sin(math.radians(self.data.pitch)) * 9.81
+        self.data.accel_z = (
+            math.cos(math.radians(self.data.roll))
+            * math.cos(math.radians(self.data.pitch))
+            * 9.81
+        )
+
+    @staticmethod
+    def _lerp(a: float, b: float, t: float) -> float:
+        return a + (b - a) * t
 
     def get_data(self) -> IMUData:
         return self.data
