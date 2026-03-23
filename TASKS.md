@@ -64,6 +64,37 @@
 | ~~P4-6~~ | ~~Queue Timeout Validation~~ | developer | **✅ DONE** | Config-Optionen hinzugefügt, maxsize/max_items_timeout validiert, 9 Tests bestanden |
 | ~~P4-7~~ | ~~Thread-Safe Config~~ | developer | **✅ DONE** | `get()` jetzt mit Lock, `reload_if_changed()` returns boolean, 9 Tests bestanden |
 
+### 🟢 Priorität 6 - LOW PRIORITY (Nice-to-have)
+
+| ID | Task | Agent | Status | Details |
+|----|------|-------|--------|---------|
+| P6-1 | Remote Control Web UI | developer | backlog | Vollständiges Web-Dashboard mit Joystick für Fernsteuerung |
+| P6-2 | Voice Commands | developer | backlog | Sprachsteuerung via Web Speech API |
+| P6-3 | Path Recording | developer | backlog | Bewegungsabläufe aufnehmen und abspielen |
+| P6-4 | Autonomous Navigation | developer | backlog | ArUco-Marker Navigation mit Auto-Ladestation |
+| P6-5 | LED Animationen | developer | backlog | Programmierbare LED-Muster bei Aktionen |
+| P6-6 | Sleep/Wake Modes | developer | backlog | Energiesparmodus mit Sensor-Timeout |
+| P6-7 | Gesture Control | developer | backlog | Handgesten für einfache Befehle |
+
+### 🟡 Priorität 7 - MEDIUM PRIORITY
+
+| ID | Task | Agent | Status | Details |
+|----|------|-------|--------|---------|
+| P7-1 | Obstacle Avoidance | developer | backlog | Ultraschall + Kamera für Kollisionsvermeidung |
+| P7-2 | MQTT Remote Commands | developer | backlog | Home Assistant Integration verbessern |
+| P7-3 | Telemetry Dashboard | developer | backlog | Live-Performance-Metriken im Web UI |
+| P7-4 | Firmware Update OTA | developer | backlog | OTA-Update für Raspberry Pi |
+| P7-5 | Config Web Editor | developer | backlog | YAML-Config über Web UI bearbeiten |
+
+### 🔴 Priorität 8 - HIGH PRIORITY (Production-ready)
+
+| ID | Task | Agent | Status | Details |
+|----|------|-------|--------|---------|
+| P8-1 | Fail-Safe States | developer | backlog | Definiertes Verhalten bei Sensor-Ausfall |
+| P8-2 | Emergency Stop | developer | backlog | Hardware-Notstopp über GPIO-Taster |
+| P8-3 | Health Monitoring | developer | backlog | Automatische Selbstdiagnose mit Alerting |
+| P8-4 | Graceful Degradation | developer | backlog | Weiterbetrieb bei Teil-Ausfall |
+
 ### 🟢 Priorität 5 - CODE QUALITY (LSP Warnings)
 
 | ID | Task | Agent | Status | Details |
