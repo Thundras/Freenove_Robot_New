@@ -60,6 +60,9 @@
 | ~~P4-2~~ | ~~Systemd Service File~~ | developer | **✅ DONE** | Service-Datei mit Auto-Restart, Graceful Shutdown, Setup-Script, 11 Tests bestanden |
 | ~~P4-3~~ | ~~API Dokumentation~~ | developer | **✅ DONE** | OpenAPI 3.0.3 Spec erstellt, alle Endpoints dokumentiert, 13 Tests bestanden |
 | ~~P4-4~~ | ~~Battery Low-Voltage Protection~~ | developer | **✅ DONE** | `is_critical()` Methode, config-basierte Thresholds, Auto-Warnungen, 10 Tests bestanden |
+| P4-5 | MockIMU Dynamic Data | developer | backlog | Camera Stabilization testbar machen mit realistischen IMU-Daten |
+| P4-6 | Queue Timeout Validation | developer | backlog | Main Loop Queue-Blocking Risk eliminieren |
+| P4-7 | Thread-Safe Config | developer | backlog | Config Hot-Reload thread-safe machen |
 
 ### 🟢 Priorität 5 - CODE QUALITY (LSP Warnings)
 
@@ -112,9 +115,9 @@
 3. P2-3: Magic Numbers aufräumen
 
 ### MEDIUM RISK (Diese Woche)
-4. **MockIMU Static Data** - Camera Stabilization nicht testbar in Simulation
-5. **Queue Blocking Risk** - Main Loop kann verhungern
-6. **Config Hot-Reload** - Nicht Thread-Safe
+4. ~~**MockIMU Static Data**~~ → P4-5 (backlog)
+5. ~~**Queue Blocking Risk**~~ → P4-6 (backlog)
+6. ~~**Config Hot-Reload**~~ → P4-7 (backlog)
 
 ---
 
