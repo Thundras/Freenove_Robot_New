@@ -12,25 +12,35 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class LedDriver:
     """
     Driver for WS2812 (NeoPixel) LEDs.
     """
+
     def __init__(self, config: ConfigManager):
         self.config = config
         self.num_pixels = config.get("hardware.led_count", 8)
         self.pin_id = config.get("hardware.led_pin", 18)
-        
+
         # Map pin ID to board attribute (e.g. 18 -> board.D18)
         self.pin = getattr(board, f"D{self.pin_id}") if board else None
-        
+
         if board is None:
             raise ImportError("Adafruit libraries not found.")
 
         try:
-            self.pixels = neopixel.NeoPixel(self.pin, self.num_pixels, brightness=0.5, auto_write=False)
-            self.current_state = {"pattern": "off", "color": [0, 0, 0], "pixels": [[0,0,0]] * self.num_pixels}
-            logger.info(f"NeoPixel initialized on Pin {self.pin} with {self.num_pixels} LEDs.")
+            self.pixels = neopixel.NeoPixel(
+                self.pin, self.num_pixels, brightness=0.5, auto_write=False
+            )
+            self.current_state = {
+                "pattern": "off",
+                "color": [0, 0, 0],
+                "pixels": [[0, 0, 0]] * self.num_pixels,
+            }
+            logger.info(
+                f"NeoPixel initialized on Pin {self.pin} with {self.num_pixels} LEDs."
+            )
         except Exception as e:
             logger.error(f"Failed to initialize NeoPixel: {e}")
             raise
@@ -66,13 +76,15 @@ class LedDriver:
             self.pixels.fill((0, 0, 0))
             self.pixels[index] = color
             # Add a little trail
-            self.pixels[(index - 1) % 7] = (r//4, g//4, b//4)
-            
+            self.pixels[(index - 1) % 7] = (r // 4, g // 4, b // 4)
+
         elif pattern == "breathe":
             # All pixels fade in and out
             brightness = (math.sin(t * 3.0) + 1) / 2
-            self.pixels.fill((int(r * brightness), int(g * brightness), int(b * brightness)))
-            
+            self.pixels.fill(
+                (int(r * brightness), int(g * brightness), int(b * brightness))
+            )
+
         elif pattern == "scanner":
             # Knight Rider style back and forth across the ring
             # Since it's a circle, we just sweep back and forth 0-6
@@ -80,18 +92,42 @@ class LedDriver:
             self.pixels.fill((0, 0, 0))
             self.pixels[pos] = color
             # Add secondary glow to neighbors
-            self.pixels[(pos - 1) % 7] = (r//6, g//6, b//6)
-            self.pixels[(pos + 1) % 7] = (r//6, g//6, b//6)
-            
+            self.pixels[(pos - 1) % 7] = (r // 6, g // 6, b // 6)
+            self.pixels[(pos + 1) % 7] = (r // 6, g // 6, b // 6)
+
         elif pattern == "heartbeat":
             # Quick double pulse
             phase = t % 2.0
             brightness = 0.0
-            if phase < 0.2: brightness = phase / 0.2
-            elif phase < 0.4: brightness = 1.0 - (phase-0.2)/0.2
-            elif phase < 0.6: brightness = (phase-0.4)/0.2
-            elif phase < 0.8: brightness = 1.0 - (phase-0.6)/0.2
-            
-            self.pixels.fill((int(r * brightness), int(g * brightness), int(b * brightness)))
+            if phase < 0.2:
+                brightness = phase / 0.2
+            elif phase < 0.4:
+                brightness = 1.0 - (phase - 0.2) / 0.2
+            elif phase < 0.6:
+                brightness = (phase - 0.4) / 0.2
+            elif phase < 0.8:
+                brightness = 1.0 - (phase - 0.6) / 0.2
+
+            self.pixels.fill(
+                (int(r * brightness), int(g * brightness), int(b * brightness))
+            )
 
         self.show()
+
+    def set_pattern(self, pattern: str, color: list):
+        """
+        Set a named animation pattern with color.
+        pattern: 'spin', 'breathe', 'scanner', 'blink', 'off'
+        color: [r, g, b]
+        """
+        if pattern == "off":
+            self.clear()
+            return
+
+        color_tuple = tuple(color) if isinstance(color, list) else color
+        self.current_state = {"pattern": pattern, "color": list(color_tuple)}
+
+        if pattern == "blink":
+            self.pixels.fill(color_tuple)
+        else:
+            self.animate(pattern, color_tuple)

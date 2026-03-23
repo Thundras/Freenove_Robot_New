@@ -1,18 +1,38 @@
 import yaml
 import logging
 from typing import Dict, Any, List
-from .bt_core import Selector, Sequence, Parallel, WeightedSelector, WeightedChoice, AdditiveLayer, ConditionDecorator
+from .bt_core import (
+    Selector,
+    Sequence,
+    Parallel,
+    WeightedSelector,
+    WeightedChoice,
+    AdditiveLayer,
+    ConditionDecorator,
+)
 from .behaviors import (
-    AvoidObstacles, SmartExplore, ReactToPerson, FollowPerson, Idle, 
-    HandleGesture, AlarmPulse, SecurityMonitor, DogSocialInteraction, 
-    PlayWithBall, AmbientLook, ReactToFace, ExpressMood, AutoLevel,
-    SniffAnimation
+    AvoidObstacles,
+    SmartExplore,
+    ReactToPerson,
+    FollowPerson,
+    Idle,
+    HandleGesture,
+    AlarmPulse,
+    SecurityMonitor,
+    DogSocialInteraction,
+    PlayWithBall,
+    AmbientLook,
+    ReactToFace,
+    ExpressMood,
+    AutoLevel,
+    SniffAnimation,
 )
 
 logger = logging.getLogger(__name__)
 
 # Action Nodes for simple parameter tweaks
 from .bt_core import ParameterLeaf
+
 
 class SetSpeed(ParameterLeaf):
     def run(self) -> bool:
@@ -24,6 +44,7 @@ class SetSpeed(ParameterLeaf):
             return True
         return False
 
+
 class SetPose(ParameterLeaf):
     def run(self) -> bool:
         self._eval_params()
@@ -32,6 +53,7 @@ class SetPose(ParameterLeaf):
             self.context["gait"].set_pose(pose)
             return True
         return False
+
 
 class SetCustomPose(ParameterLeaf):
     def run(self) -> bool:
@@ -45,13 +67,13 @@ class SetCustomPose(ParameterLeaf):
             return True
         return False
 
+
 BEHAVIOR_REGISTRY = {
     # Composites
     "Selector": Selector,
     "Sequence": Sequence,
     "Parallel": Parallel,
     "WeightedSelector": WeightedSelector,
-    
     # Core Robot Actions
     "AvoidObstacles": AvoidObstacles,
     "SmartExplore": SmartExplore,
@@ -68,13 +90,13 @@ BEHAVIOR_REGISTRY = {
     "ExpressMood": ExpressMood,
     "AutoLevel": AutoLevel,
     "SniffAnimation": SniffAnimation,
-    
     # Generic Parameter Actions
     "SetSpeed": SetSpeed,
     "SetPose": SetPose,
     "SetCustomPose": SetCustomPose,
-    "AdditiveLayer": AdditiveLayer
+    "AdditiveLayer": AdditiveLayer,
 }
+
 
 class BehaviorFactory:
     def __init__(self, context: Dict[str, Any]):
@@ -87,7 +109,7 @@ class BehaviorFactory:
             return self.parse_node(config.get("root", {}))
         except Exception as e:
             logger.error(f"Failed to load behavior DNA from {file_path}: {e}")
-            return Idle("FallbackIdle", self.context.get("gait"))
+            return Idle("FallbackIdle", self.context, None)
 
     def parse_node(self, node_cfg: Dict[str, Any]):
         node_type = node_cfg.get("type", "Idle")
@@ -95,10 +117,10 @@ class BehaviorFactory:
         params = node_cfg.get("params", {})
         condition = node_cfg.get("condition")
         children_cfg = node_cfg.get("children", [])
-        
+
         if node_type not in BEHAVIOR_REGISTRY:
             logger.warning(f"Unknown behavior node type: {node_type}")
-            return Idle(f"Unknown_{node_name}", self.context.get("gait"))
+            return Idle(f"Unknown_{node_name}", self.context, None)
 
         node_class = BEHAVIOR_REGISTRY[node_type]
 
@@ -110,11 +132,11 @@ class BehaviorFactory:
                 if "choice" in child_cfg:
                     cfg = child_cfg["choice"]
                     child_node = self.parse_node(cfg)
-                    choices.append(WeightedChoice(
-                        child_node, 
-                        cfg.get("weight", 1.0), 
-                        cfg.get("condition")
-                    ))
+                    choices.append(
+                        WeightedChoice(
+                            child_node, cfg.get("weight", 1.0), cfg.get("condition")
+                        )
+                    )
             return WeightedSelector(node_name, choices, self.context)
 
         # 2. Handle Composites (Selector, Sequence, Parallel)
@@ -132,7 +154,7 @@ class BehaviorFactory:
             elif node_type == "SmartExplore":
                 node = node_class(node_name, self.context, params)
             elif node_type == "Idle":
-                 node = node_class(node_name, self.context, params)
+                node = node_class(node_name, self.context, params)
             else:
                 node = node_class(node_name, self.context, params)
 
@@ -143,10 +165,16 @@ class BehaviorFactory:
                 node = node_class(node_name, self.context)
             except Exception as e:
                 logger.error(f"Error instantiating {node_type}: {e}")
-                node = node_class(node_name, self.context.get("gait")) if "gait" in self.context else node_class(node_name)
+                node = (
+                    node_class(node_name, self.context.get("gait"))
+                    if "gait" in self.context
+                    else node_class(node_name)
+                )
 
         # --- CONDITION WRAPPING ---
         if condition:
-            node = ConditionDecorator(f"Cond_{node_name}", node, condition, self.context)
-            
+            node = ConditionDecorator(
+                f"Cond_{node_name}", node, condition, self.context
+            )
+
         return node

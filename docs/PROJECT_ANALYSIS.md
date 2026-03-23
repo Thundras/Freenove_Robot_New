@@ -169,9 +169,8 @@ main.py (100Hz Loop)
 Battery Low-Voltage Protection - Auto-Shutdown bei kritischem Akkustand
 
 ### Nächster Sprint (P5)
-1. P4-1: Plugin Architektur
-2. P4-2: Systemd Service
-3. P4-3: OpenAPI Dokumentation
+1. P4-4: Battery Low-Voltage Protection (HIGH)
+2. P5-1 bis P5-5: LSP Warnings beheben (Code Quality)
 
 ### Langfristig
 - Production Hardening

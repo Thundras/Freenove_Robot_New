@@ -61,6 +61,16 @@
 | P4-3 | API Dokumentation | developer | backlog | OpenAPI/Swagger Spec für Web Endpoints |
 | P4-4 | Battery Low-Voltage Protection | developer | backlog | Auto-Shutdown bei kritischem Akkustand |
 
+### 🟢 Priorität 5 - CODE QUALITY (LSP Warnings)
+
+| ID | Task | Agent | Status | Details |
+|----|------|-------|--------|---------|
+| ~~P5-1~~ | ~~LSP Warnings main.py beheben~~ | developer | **✅ DONE** | config moved before use, hasattr checks, battery voltage safety |
+| ~~P5-2~~ | ~~LSP Warnings ik.py beheben~~ | developer | **✅ DONE** | `limits: Optional[dict] = None` |
+| ~~P5-3~~ | ~~LSP Warnings behaviors.py beheben~~ | developer | **✅ DONE** | `math` importiert, gait None-Checks |
+| ~~P5-4~~ | ~~LSP Warnings bt_factory.py beheben~~ | developer | **✅ DONE** | Idle mit `self.context` statt `gait`, alle 34 BT-Tests bestanden |
+| ~~P5-5~~ | ~~Type Hints konsistent machen~~ | developer | **✅ DONE** | Optional imports hinzugefügt |
+
 ---
 
 ## Risiko-Analyse

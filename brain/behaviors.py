@@ -1,5 +1,6 @@
 import logging
 import time
+import math
 from .bt_core import Leaf, ParameterLeaf
 
 logger = logging.getLogger(__name__)
@@ -213,9 +214,10 @@ class AvoidObstacles(ParameterLeaf):
                 return False
 
             logger.warning(f"Obstacle detected at {distance}cm! Avoiding...")
-            # Logic for avoidance: Stop or turn
-            turn_speed = self.current_params.get("turn_speed", 0.5)
-            self.context.get("gait").set_target_speed(0.0, turn_speed)  # Turn on spot
+            gait = self.context.get("gait")
+            if gait and hasattr(gait, "set_target_speed"):
+                turn_speed = self.current_params.get("turn_speed", 0.5)
+                gait.set_target_speed(0.0, turn_speed)  # Turn on spot
             return True
 
         return False
@@ -240,6 +242,9 @@ class SmartExplore(ParameterLeaf):
             return False
 
         gait = self.context.get("gait")
+        if not gait:
+            return False
+
         now = time.time()
         elapsed = now - self.state_start_time
 

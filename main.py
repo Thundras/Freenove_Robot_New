@@ -3,18 +3,18 @@ import warnings
 import logging
 
 # 1. Silencing AI internal logs/warnings BEFORE any heavy imports
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-os.environ['TFLITE_LOG_SEVERITY'] = '3'
-os.environ['GLOG_minloglevel'] = '3'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["TFLITE_LOG_SEVERITY"] = "3"
+os.environ["GLOG_minloglevel"] = "3"
 
 warnings.filterwarnings("ignore")
 
 # Silence specific library noise
-logging.getLogger('absl').setLevel(logging.WARNING)
-logging.getLogger('werkzeug').setLevel(logging.ERROR)
-logging.getLogger('tensorflow').setLevel(logging.ERROR)
-logging.getLogger('keras').setLevel(logging.ERROR)
+logging.getLogger("absl").setLevel(logging.WARNING)
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
+logging.getLogger("keras").setLevel(logging.ERROR)
 
 import sys
 import time
@@ -33,38 +33,42 @@ root_logger = logging.getLogger()
 root_logger.setLevel(logging.INFO)
 ch = logging.StreamHandler(sys.stdout)
 ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 ch.setFormatter(formatter)
 root_logger.handlers = []
 root_logger.addHandler(ch)
-    
+
+
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(('localhost', port)) == 0
+        return s.connect_ex(("localhost", port)) == 0
+
 
 def main():
     logger = logging.getLogger("RobotMain")
-    
+
     logger.info("Initializing Robot Dog 2.0...")
-    
+
     # 0. Port Safety Check
+    config = ConfigManager()
+
     if is_port_in_use(5000):
         logger.critical("!!! PORT 5000 IS ALREADY IN USE !!!")
-        
+
         # Visual Alarm on hardware
         try:
             led = SalFactory.get_led(config)
-            led.set_pattern("blink", [255, 0, 0]) # Flash Red
+            if hasattr(led, "set_pattern"):
+                led.set_pattern("blink", [255, 0, 0])  # Flash Red
             time.sleep(2)
-        except: pass
-        
+        except:
+            pass
+
         logger.critical("Possible 'ghost' process detected. Please run:")
         logger.critical("  Stop-Process -Name python -Force")
         logger.critical("in PowerShell before starting.")
-        return # Exit early
-    
-    config = ConfigManager()
-    
+        return  # Exit early
+
     # 1. Hardware Initialization
     servo_ctrl = SalFactory.get_servo_controller(config)
     imu = SalFactory.get_imu(config)
@@ -72,62 +76,76 @@ def main():
     ultrasonic = SalFactory.get_ultrasonic(config)
     buzzer = SalFactory.get_buzzer(config)
     led = SalFactory.get_led(config)
-    
+
     # 2. Engine Initialization
     default_height = config.get("system.base_height", 105.0)
     gait = GaitSequencer(base_height=default_height)
     ik = IKEngine()
-    
-    sensors = {"ultrasonic": ultrasonic, "imu": imu, "battery": battery, "gait": gait, "buzzer": buzzer, "led": led}
-    intelligence = IntelligenceController(config, sensors=sensors, gait=gait, servo_ctrl=servo_ctrl)
-    
+
+    sensors = {
+        "ultrasonic": ultrasonic,
+        "imu": imu,
+        "battery": battery,
+        "gait": gait,
+        "buzzer": buzzer,
+        "led": led,
+    }
+    intelligence = IntelligenceController(
+        config, sensors=sensors, gait=gait, servo_ctrl=servo_ctrl
+    )
+
     # 3. API & Connectivity
     ha = HAConnectivity(config, movement=gait, intelligence=intelligence)
-    web = WebServer(config, movement_engine=gait, intelligence=intelligence, servo_ctrl=servo_ctrl)
-    
+    web = WebServer(
+        config, movement_engine=gait, intelligence=intelligence, servo_ctrl=servo_ctrl
+    )
+
     # Start background components
     ha.connect()
     ha.setup_discovery()
     intelligence.start()
-    
+
     # Run Web Server in a separate thread
     web_thread = threading.Thread(target=web.run, daemon=True)
     web_thread.start()
-    
+
     hz = config.get("system.control_loop_hz", 100)
     dt = 1.0 / hz
-    
+
     logger.info(f"Robot ready. Control Loop running at {hz}Hz.")
-    
+
     last_ha_time = 0
     last_map_time = 0
-    
+
     try:
         while True:
             start_time = time.perf_counter()
             now_ts = time.time()
-            
+
             # --- 1. MOVEMENT (PRIORITY) ---
             gait.update(dt)
             target_poses = gait.calculate_step()
             servo_ctrl.update_poses(target_poses, ik)
-            
+
             # --- 2. SENSORS ---
             imu.update()
             battery.update()
             ultrasonic.update()
-            buzzer.update()
-            
+            if hasattr(buzzer, "update"):
+                buzzer.update()
+
             # --- 3. INTELLIGENCE ---
             intelligence.update()
-            
+
             # --- 4. TELEMETRY (THROTTLED) ---
             # HA Telemetry (1 Hz)
             if now_ts - last_ha_time >= 1.0:
-                ha.publish_state("battery", battery.get_data().voltage)
+                battery_data = battery.get_data()
+                if battery_data and hasattr(battery_data, "voltage"):
+                    ha.publish_state("battery", battery_data.voltage)
                 ha.publish_state("system_mode", intelligence.context["system_mode"])
                 last_ha_time = now_ts
-            
+
             # Environmental Map (High bandwidth -> Background thread)
             # Throttle to 2s based on user feedback (movement priority)
             if now_ts - last_map_time >= 2.0:
@@ -138,27 +156,33 @@ def main():
                         "robot_pos": m.robot_pos,
                         "robot_yaw": m.robot_yaw,
                         "grid": serializable_grid,
-                        "landmarks": m.landmarks
+                        "landmarks": m.landmarks,
                     }
                     ha.publish_state("env_map", map_data, use_thread=True)
                 last_map_time = now_ts
-            
+
             # --- PERFORMANCE MONITORING ---
             elapsed = time.perf_counter() - start_time
             if int(now_ts) % 5 == 0:
-                if not hasattr(main, "_last_perf_log") or main._last_perf_log != int(now_ts):
-                    logger.info(f"[PERF] Loop frequency: {1.0/max(0.0001, elapsed):.1f} Hz | Work time: {elapsed*1000:.2f} ms")
+                if not hasattr(main, "_last_perf_log") or main._last_perf_log != int(
+                    now_ts
+                ):
+                    logger.info(
+                        f"[PERF] Loop frequency: {1.0 / max(0.0001, elapsed):.1f} Hz | Work time: {elapsed * 1000:.2f} ms"
+                    )
                     main._last_perf_log = int(now_ts)
-            
+
             # Auto-Reload Config
             if int(now_ts) % 2 == 0:
-                if not hasattr(main, "_last_reload_check") or main._last_reload_check != int(now_ts):
+                if not hasattr(
+                    main, "_last_reload_check"
+                ) or main._last_reload_check != int(now_ts):
                     config.reload_if_changed()
                     main._last_reload_check = int(now_ts)
 
             sleep_time = max(0, dt - (time.perf_counter() - start_time))
             time.sleep(sleep_time)
-            
+
     except KeyboardInterrupt:
         logger.info("Shutdown requested.")
     except Exception as e:
@@ -169,18 +193,19 @@ def main():
             intelligence.stop()
         except Exception as e:
             logger.error(f"Error stopping intelligence: {e}")
-            
+
         try:
             ha.disconnect()
         except Exception as e:
             logger.error(f"Error disconnecting HA: {e}")
-            
+
         try:
             servo_ctrl.release_all()
         except Exception as e:
             logger.error(f"Error releasing servos: {e}")
-        
+
         logger.info("Robot shutdown complete.")
+
 
 if __name__ == "__main__":
     main()

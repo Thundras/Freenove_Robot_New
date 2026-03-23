@@ -1,7 +1,7 @@
 import math
 import logging
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class IKEngine:
         self.l3 = l3
 
     def calculate_angles(
-        self, x: float, y: float, z: float, limits: dict = None
+        self, x: float, y: float, z: float, limits: Optional[dict] = None
     ) -> LegAngles:
         """
         Calculate leg angles (in degrees) for a target coordinate (x, y, z).

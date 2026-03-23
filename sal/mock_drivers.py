@@ -192,6 +192,20 @@ class MockLed:
             "pixels": self.pixels,
         }
 
+    def set_pattern(self, pattern: str, color: list):
+        """Set a named animation pattern with color."""
+        if pattern == "off":
+            self.clear()
+            return
+
+        color_list = list(color) if not isinstance(color, list) else color
+        self.pixels = [color_list] * self.num_pixels
+        self.current_state = {
+            "pattern": pattern,
+            "color": color_list,
+            "pixels": self.pixels,
+        }
+
 
 class MockGait:
     def __init__(self):

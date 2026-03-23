@@ -1,5 +1,6 @@
 import logging
 import time
+
 try:
     from gpiozero import Buzzer
 except ImportError:
@@ -7,15 +8,16 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class BuzzerDriver:
     def __init__(self, config):
         self.config = config
         self.pin = config.get("hardware.buzzer_pin", 17)
         self.buzzer = None
-        
+
         if Buzzer is None:
             raise ImportError("gpiozero not found")
-            
+
         try:
             self.buzzer = Buzzer(self.pin)
             logger.info(f"BuzzerDriver initialized on Pin {self.pin}")
@@ -36,3 +38,7 @@ class BuzzerDriver:
     def off(self):
         if self.buzzer:
             self.buzzer.off()
+
+    def update(self):
+        """Update method for compatibility with sensor interface."""
+        pass
