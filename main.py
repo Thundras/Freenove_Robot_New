@@ -27,6 +27,7 @@ from movement.ik import IKEngine
 from brain.intelligence import IntelligenceController
 from api.ha_connectivity import HAConnectivity
 from api.web_server import WebServer
+from utils.fail_safe import FailSafeManager, FailSafeState
 
 # Ultimate root logging setup
 root_logger = logging.getLogger()
@@ -118,20 +119,52 @@ def main():
     last_map_time = 0
     last_battery_warning = 0
 
+    fail_safe = FailSafeManager(config)
+
     try:
         while True:
             start_time = time.perf_counter()
             now_ts = time.time()
 
+            # --- 0. FAIL-SAFE CHECK ---
+            fail_safe.check_all_sensors()
+            speed_mult = fail_safe.get_speed_multiplier()
+            if not fail_safe.is_safe_for_movement():
+                gait.set_target_speed(0.0, 0.0)
+                if fail_safe.current_state == FailSafeState.EMERGENCY_STOP:
+                    gait.set_pose("sit")
+                    break
+
             # --- 1. MOVEMENT (PRIORITY) ---
             gait.update(dt)
             target_poses = gait.calculate_step()
-            servo_ctrl.update_poses(target_poses, ik)
+            if speed_mult < 1.0:
+                target_poses = {
+                    k: (x * speed_mult, y * speed_mult, z)
+                    for k, (x, y, z) in target_poses.items()
+                }
+            try:
+                servo_ctrl.update_poses(target_poses, ik)
+            except Exception as e:
+                logger.error(f"Servo update failed: {e}")
+                fail_safe.trigger_failsafe("servo", FailSafeState.SERVO_ERROR)
+                servo_ctrl.release_all()
 
             # --- 2. SENSORS ---
-            imu.update()
-            battery.update()
-            ultrasonic.update()
+            try:
+                imu.update()
+                fail_safe.update_sensor_heartbeat("imu")
+            except Exception as e:
+                logger.error(f"IMU update failed: {e}")
+            try:
+                battery.update()
+            except Exception as e:
+                logger.error(f"Battery update failed: {e}")
+            try:
+                ultrasonic.update()
+                fail_safe.update_sensor_heartbeat("ultrasonic")
+            except Exception as e:
+                logger.error(f"Ultrasonic update failed: {e}")
             if hasattr(buzzer, "update"):
                 buzzer.update()
 
