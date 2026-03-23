@@ -94,6 +94,12 @@ servos:
       middle: 90
 system:
   control_loop_hz: 75
+battery:
+  voltage_min: 7.0
+  voltage_max: 8.4
+  voltage_low: 7.2
+  voltage_critical: 6.8
+  low_warning_interval: 30
 mapping:
   markers:
     '0':

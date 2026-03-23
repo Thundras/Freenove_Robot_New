@@ -116,6 +116,7 @@ def main():
 
     last_ha_time = 0
     last_map_time = 0
+    last_battery_warning = 0
 
     try:
         while True:
@@ -145,6 +146,29 @@ def main():
                     ha.publish_state("battery", battery_data.voltage)
                 ha.publish_state("system_mode", intelligence.context["system_mode"])
                 last_ha_time = now_ts
+
+            # --- 4.5 BATTERY PROTECTION ---
+            battery_data = battery.get_data()
+            if battery_data and hasattr(battery_data, "is_low"):
+                if battery_data.is_low:
+                    warning_interval = config.get("battery.low_warning_interval", 30)
+                    if now_ts - last_battery_warning >= warning_interval:
+                        logger.warning(
+                            f"LOW BATTERY: {battery_data.voltage:.1f}V "
+                            f"({battery_data.percentage}%)"
+                        )
+                        ha.publish_state("battery_warning", True)
+                        last_battery_warning = now_ts
+
+                        if hasattr(buzzer, "beep"):
+                            buzzer.beep(0.2)
+
+                if hasattr(battery, "is_critical") and battery.is_critical():
+                    logger.critical("CRITICAL BATTERY: Initiating shutdown sequence!")
+                    gait.set_target_speed(0.0, 0.0)
+                    gait.set_pose("sit")
+                    ha.publish_state("battery_critical", True)
+                    break
 
             # Environmental Map (High bandwidth -> Background thread)
             # Throttle to 2s based on user feedback (movement priority)
