@@ -58,7 +58,7 @@
 |----|------|-------|--------|---------|
 | ~~P4-1~~ | ~~Plugin Architektur~~ | developer | **✅ DONE** | Plugin-System erstellt, DanceBehavior Beispiel-Plugin, 18 Tests bestanden |
 | ~~P4-2~~ | ~~Systemd Service File~~ | developer | **✅ DONE** | Service-Datei mit Auto-Restart, Graceful Shutdown, Setup-Script, 11 Tests bestanden |
-| P4-3 | API Dokumentation | developer | backlog | OpenAPI/Swagger Spec für Web Endpoints |
+| ~~P4-3~~ | ~~API Dokumentation~~ | developer | **✅ DONE** | OpenAPI 3.0.3 Spec erstellt, alle Endpoints dokumentiert, 13 Tests bestanden |
 | P4-4 | Battery Low-Voltage Protection | developer | backlog | Auto-Shutdown bei kritischem Akkustand |
 
 ### 🟢 Priorität 5 - CODE QUALITY (LSP Warnings)

@@ -1,0 +1,424 @@
+openapi: 3.0.3
+info:
+  title: Freenove Robot Dog API
+  description: |
+    REST API for the Freenove Robot Dog 2.0 control system.
+    
+    ## Authentication
+    Currently no authentication is required. Future versions may include API keys.
+    
+    ## Rate Limiting
+    No rate limiting is currently implemented.
+    
+    ## Response Format
+    All responses are JSON. Successful responses return HTTP 200.
+    Errors return HTTP 4xx or 5xx with a JSON body containing `status` and `message`.
+  version: 1.0.0
+  contact:
+    name: Freenove Robot Dog Project
+
+servers:
+  - url: http://localhost:5000
+    description: Local development server
+  - url: http://robot-dog.local:5000
+    description: Robot local network
+
+tags:
+  - name: Status
+    description: Robot status and telemetry
+  - name: Movement
+    description: Movement and gait control
+  - name: Configuration
+    description: System configuration
+  - name: Vision
+    description: Camera and face recognition
+  - name: Markers
+    description: ARUCO marker management
+
+paths:
+  /:
+    get:
+      summary: Dashboard
+      description: Returns the web dashboard HTML
+      responses:
+        '200':
+          description: Dashboard HTML
+
+  /api/status:
+    get:
+      tags: [Status]
+      summary: Get robot status
+      description: Returns current robot status including battery, pose, mood, and detected face.
+      responses:
+        '200':
+          description: Robot status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RobotStatus'
+
+  /api/mood/energy/{val}:
+    post:
+      tags: [Status]
+      summary: Set energy level
+      parameters:
+        - name: val
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+      responses:
+        '200':
+          description: Energy level set
+        '503':
+          description: Mood system not ready
+
+  /api/mood/energy/auto:
+    post:
+      tags: [Status]
+      summary: Enable auto energy
+      responses:
+        '200':
+          description: Auto energy enabled
+
+  /api/gait/{gait}:
+    post:
+      tags: [Movement]
+      summary: Set gait type
+      parameters:
+        - name: gait
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [trot, walk, pace, bound, creep]
+      responses:
+        '200':
+          description: Gait changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  gait:
+                    type: string
+
+  /api/pose/{pose}:
+    post:
+      tags: [Movement]
+      summary: Set body pose
+      parameters:
+        - name: pose
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [normal, sit, down, calibrate]
+      responses:
+        '200':
+          description: Pose set
+        '503':
+          description: Movement engine not ready
+
+  /api/mode/{mode}:
+    post:
+      tags: [Movement]
+      summary: Set system mode
+      parameters:
+        - name: mode
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [autonomous, manual, idle, alarm]
+      responses:
+        '200':
+          description: Mode changed
+
+  /api/height/{val}:
+    post:
+      tags: [Movement]
+      summary: Set body height
+      parameters:
+        - name: val
+          in: path
+          required: true
+          schema:
+            type: number
+            format: float
+      responses:
+        '200':
+          description: Height set
+        '503':
+          description: Movement engine not ready
+
+  /api/body/pose:
+    post:
+      tags: [Movement]
+      summary: Update body pose parameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                x:
+                  type: number
+                  description: Body X offset (mm)
+                y:
+                  type: number
+                  description: Body Y offset (mm)
+                z:
+                  type: number
+                  description: Body Z offset (mm)
+                pitch:
+                  type: number
+                  description: Body pitch (degrees)
+                roll:
+                  type: number
+                  description: Body roll (degrees)
+      responses:
+        '200':
+          description: Body pose updated
+        '503':
+          description: Movement engine not ready
+
+  /api/servo/test/{motion}:
+    post:
+      tags: [Movement]
+      summary: Run servo test motion
+      parameters:
+        - name: motion
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Test motion started
+
+  /api/config:
+    get:
+      tags: [Configuration]
+      summary: Get full configuration
+      responses:
+        '200':
+          description: Configuration object
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/config/update:
+    post:
+      tags: [Configuration]
+      summary: Update configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Configuration updated
+        '500':
+          description: Failed to save config
+
+  /api/config/servos:
+    get:
+      tags: [Configuration]
+      summary: Get servo configuration
+      responses:
+        '200':
+          description: Servo configuration
+
+  /api/config/servos/update:
+    post:
+      tags: [Configuration]
+      summary: Update servo configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Servo config updated
+        '500':
+          description: Failed to save
+
+  /api/servos:
+    get:
+      tags: [Configuration]
+      summary: Get current servo angles
+      responses:
+        '200':
+          description: Servo angle data
+        '500':
+          description: Error retrieving servos
+
+  /api/camera_stream:
+    get:
+      tags: [Vision]
+      summary: Get camera stream
+      description: Returns MJPEG video stream
+      responses:
+        '200':
+          description: Video stream
+          content:
+            multipart/x-mixed-replace:
+              schema:
+                type: string
+
+  /api/faces:
+    get:
+      tags: [Vision]
+      summary: Get known faces
+      responses:
+        '200':
+          description: Face database
+
+  /api/faces/{id}:
+    put:
+      tags: [Vision]
+      summary: Rename face
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Face renamed
+        '404':
+          description: Face not found
+
+    delete:
+      tags: [Vision]
+      summary: Delete face
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Face deleted
+        '404':
+          description: Face not found
+
+  /api/markers:
+    get:
+      tags: [Markers]
+      summary: Get ARUCO markers
+      responses:
+        '200':
+          description: Marker list
+
+    post:
+      tags: [Markers]
+      summary: Add ARUCO marker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                size:
+                  type: number
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Marker added
+
+  /api/markers/{id}:
+    delete:
+      tags: [Markers]
+      summary: Delete marker
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Marker deleted
+        '404':
+          description: Marker not found
+
+  /api/map:
+    get:
+      tags: [Markers]
+      summary: Get SLAM map data
+      responses:
+        '200':
+          description: SLAM map data
+
+components:
+  schemas:
+    RobotStatus:
+      type: object
+      properties:
+        mode:
+          type: string
+          description: System mode (autonomous, manual, idle, alarm)
+        pose:
+          type: string
+          description: Current pose (normal, sit, down)
+        gait:
+          type: string
+          description: Current gait type
+        mood:
+          type: object
+          properties:
+            energy:
+              type: number
+            excitement:
+              type: number
+            comfort:
+              type: number
+        battery:
+          type: object
+          properties:
+            voltage:
+              type: number
+            percentage:
+              type: integer
+        led:
+          type: object
+        buzzer:
+          type: object
+          properties:
+            active:
+              type: boolean
+        detected_face:
+          type: object
+          properties:
+            name:
+              type: string
+            trust:
+              type: number
