@@ -93,35 +93,7 @@ servos:
       limit_pos: 90
       middle: 90
 system:
-  control_loop_hz: 50
-  log_level: INFO
-  simulation_mode: true
-  camera_stabilization: true
-  camera_stabilization_crop: 0.15
-  vision_processing_skip: 10
-  vision_fps_limit: 20
-  gesture_trust_threshold: 0.1
-  web_host: 0.0.0.0
-  web_port: 5000
-  show_vision_debug: true
-  social_memory_min_exposure: 60
-  social_memory_max_age_hours: 2
-  base_height: 105
-  shoulder_to_body_offset: 50
-  body_length: 140
-  body_width: 80
-  # Vision Watchdog Settings
-  vision_watchdog_timeout: 30.0      # seconds before restart attempt
-  vision_max_restarts: 5              # maximum restart attempts before giving up
-  vision_boot_timeout: 60.0          # grace period during startup (camera init)
-  # Queue Consumer Settings
-  queue_consumer_timeout: 0.01       # seconds to wait for queue item
-  max_queue_items_per_update: 3      # max items to process per update cycle
-  # Face Recognition Settings
-  face_match_threshold: 1.0          # L2 distance for face match
-  face_new_angle_threshold: 0.5       # Distance for new template (viewpoint)
-  face_embedding_alpha: 0.01          # Update rate for embedding adaptation
-  face_max_templates: 10              # Maximum templates per face
+  control_loop_hz: 75
 mapping:
   markers:
     '0':

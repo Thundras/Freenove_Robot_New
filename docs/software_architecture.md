@@ -57,3 +57,26 @@ Der IntelligenceController überwacht den Vision-Prozess:
 ## 3. Kommunikation & Connectivity
 *   **MQTT (Home Assistant):** Bietet Auto-Discovery für Sensoren und Schalter.
 *   **Web-Server:** Streamt den stabilisierten MJPEG-Feed und bietet ein Notfall-Dashboard.
+
+### Web Dashboard Features
+Das Dashboard (`api/templates/index.html`) bietet:
+*   **Live Kamera-Stream** mit Status-Anzeige (Verbunden/Getrennt)
+*   **FPS-Counter** für Vision-Performance
+*   **Face Detection Overlay** mit Name und Trust-Score
+*   **Biometrie & Stimmung** Anzeige (Energie, Aufregung, Komfort)
+*   **Kinematik-Monitor** mit 2D Bein-Visualisierung
+*   **SLAM-Karte** mit Roboter-Position und Hindernissen
+*   **Soziales Gedächtnis** mit Face-Cards und Trust-Verlauf
+*   **Servo-Kalibrierung** mit Live-Mittelwerte
+*   **MQTT-Konfiguration** für Home Assistant
+
+### API Endpoints
+| Endpoint | Methode | Beschreibung |
+|----------|---------|-------------|
+| `/api/status` | GET | Robot-Status (Battery, Pose, Mood, detected_face) |
+| `/api/config` | GET/PUT | Konfiguration lesen/schreiben |
+| `/api/camera_stream` | GET | MJPEG Video-Stream |
+| `/api/move` | POST | Bewegungsbefehle |
+| `/api/faces` | GET | Face-Datenbank |
+| `/api/map` | GET | SLAM-Kartendaten |
+| `/api/markers` | GET/POST/DELETE | Aruco-Marker |

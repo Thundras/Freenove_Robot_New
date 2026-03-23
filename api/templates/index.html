@@ -953,6 +953,25 @@
             pointer-events: none;
             filter: grayscale(0.8);
         }
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: white;
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+        }
+        .status-badge.connected {
+            background: rgba(16, 185, 129, 0.8);
+        }
+        .status-badge.disconnected {
+            background: rgba(239, 68, 68, 0.8);
+        }
+        .status-badge.loading {
+            background: rgba(251, 191, 36, 0.8);
+        }
     </style>
 </head>
 
@@ -1005,8 +1024,25 @@
 <div id='tab-status' class='tab-content active'>
     <div class="dashboard-grid no-gap">
         <section class="card vision-card" style="grid-column: span 2;">
-            <div class="video-container main-video">
-                <img src="/api/camera_stream" alt="Live View">
+            <div style="position: relative;">
+                <div style="position: absolute; top: 10px; left: 10px; z-index: 10; display: flex; gap: 10px;">
+                    <div id="camera-status" class="status-badge" style="background: #333;">
+                        <span id="camera-status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #666; margin-right: 6px;"></span>
+                        <span id="camera-status-text">Kamera</span>
+                    </div>
+                    <div id="fps-display" class="status-badge" style="background: #333; font-family: monospace;">
+                        <span id="fps-value">--</span> FPS
+                    </div>
+                </div>
+                <div style="position: absolute; top: 10px; right: 10px; z-index: 10;">
+                    <div id="detection-info" class="status-badge" style="background: rgba(0,0,0,0.7); display: none;">
+                        <span id="detected-name">--</span>
+                        <span id="detected-confidence" style="opacity: 0.7; margin-left: 8px;"></span>
+                    </div>
+                </div>
+                <div class="video-container main-video">
+                    <img id="camera-stream" src="/api/camera_stream" alt="Live View" onerror="handleCameraError()" onload="handleCameraLoaded()">
+                </div>
             </div>
         </section>
 
@@ -1353,6 +1389,78 @@
         }
     };
 
+    // --- Camera Stream Monitoring ---
+    let cameraConnected = false;
+    let lastFrameTime = 0;
+    let frameCount = 0;
+    let fpsUpdateInterval = null;
+    
+    function handleCameraLoaded() {
+        cameraConnected = true;
+        updateCameraStatus('Verbunden', true);
+        if (!fpsUpdateInterval) {
+            fpsUpdateInterval = setInterval(updateFPS, 1000);
+        }
+    }
+    
+    function handleCameraError() {
+        cameraConnected = false;
+        updateCameraStatus('Getrennt', false);
+        toast.show('Kamera-Verbindung verloren');
+    }
+    
+    function updateCameraStatus(text, connected) {
+        const statusEl = document.getElementById('camera-status');
+        const dotEl = document.getElementById('camera-status-dot');
+        const textEl = document.getElementById('camera-status-text');
+        
+        if (statusEl && dotEl && textEl) {
+            textEl.textContent = text;
+            statusEl.className = 'status-badge ' + (connected ? 'connected' : 'disconnected');
+            dotEl.style.background = connected ? '#10b981' : '#ef4444';
+        }
+    }
+    
+    function updateFPS() {
+        const fpsEl = document.getElementById('fps-value');
+        if (fpsEl) {
+            const fps = frameCount;
+            fpsEl.textContent = fps;
+            frameCount = 0;
+        }
+    }
+    
+    // Track frame updates via img load events
+    const cameraImg = document.getElementById('camera-stream');
+    if (cameraImg) {
+        cameraImg.addEventListener('load', () => {
+            frameCount++;
+            if (!cameraConnected) {
+                handleCameraLoaded();
+            }
+        });
+        cameraImg.addEventListener('error', handleCameraError);
+    }
+
+    // --- Vision Detection Updates ---
+    let lastDetection = { name: null, confidence: 0 };
+    
+    function updateDetectionDisplay(name, confidence) {
+        const infoEl = document.getElementById('detection-info');
+        const nameEl = document.getElementById('detected-name');
+        const confEl = document.getElementById('detected-confidence');
+        
+        if (infoEl && nameEl && confEl) {
+            if (name) {
+                nameEl.textContent = name;
+                confEl.textContent = confidence ? `${(confidence * 100).toFixed(0)}%` : '';
+                infoEl.style.display = 'flex';
+                infoEl.className = 'status-badge connected';
+            } else {
+                infoEl.style.display = 'none';
+            }
+        }
+    }
 
     let currentConfig = {};
     let facesData = {}; // Global store for face data
@@ -1426,18 +1534,26 @@
         const id = document.getElementById('m-id').value;
         const size = document.getElementById('m-size').value;
         const name = document.getElementById('m-name').value;
-        if (!id || !size) return alert("ID und Größe werden benötigt!");
+        if (!id || !size) return toast.show('ID und Größe werden benötigt!');
 
-        const res = await fetch('/api/markers', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, size, name })
-        });
-        if (res.ok) {
-            loadMarkers();
-            document.getElementById('m-id').value = '';
-            document.getElementById('m-size').value = '';
-            document.getElementById('m-name').value = '';
+        try {
+            const res = await fetch('/api/markers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, size, name })
+            });
+            if (res.ok) {
+                loadMarkers();
+                document.getElementById('m-id').value = '';
+                document.getElementById('m-size').value = '';
+                document.getElementById('m-name').value = '';
+                toast.show('Marker gespeichert');
+            } else {
+                toast.show('Fehler beim Speichern');
+            }
+        } catch (err) {
+            console.error('Marker save failed:', err);
+            toast.show('Verbindungsfehler');
         }
     }
 
@@ -1455,12 +1571,18 @@
 
     async function confirmDeleteMarker() {
         if (!currentDeleteId) return;
-        const res = await fetch(`/api/markers/${currentDeleteId}`, { method: 'DELETE' });
-        if (res.ok) {
-            loadMarkers();
-            closeDeleteMarkerModal();
-        } else {
-            alert("Fehler beim Löschen.");
+        try {
+            const res = await fetch(`/api/markers/${currentDeleteId}`, { method: 'DELETE' });
+            if (res.ok) {
+                loadMarkers();
+                closeDeleteMarkerModal();
+                toast.show('Marker gelöscht');
+            } else {
+                toast.show('Fehler beim Löschen');
+            }
+        } catch (err) {
+            console.error('Marker delete failed:', err);
+            toast.show('Verbindungsfehler');
         }
     }
 
@@ -1654,6 +1776,11 @@
     }
 
     async function saveServoConfig() {
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = 'Speichere...';
+        btn.disabled = true;
+        
         try {
             const res = await fetch('/api/config/servos/update', {
                 method: 'POST',
@@ -1663,22 +1790,43 @@
             if (res.ok) {
                 toast.show("Servo-Konfiguration gespeichert!");
             } else {
-                alert("Speichern fehlgeschlagen.");
+                toast.show("Speichern fehlgeschlagen");
             }
-        } catch (err) { alert("Netzwerkfehler beim Speichern."); }
+        } catch (err) { 
+            console.error('Servo config save failed:', err);
+            toast.show("Netzwerkfehler");
+        } finally {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
     }
+    
     async function updateQuickConfig(key, value) {
         const data = {};
         data[key] = value;
-        await fetch('/api/config/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        fetch('/api/config/update', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(data) 
+        }).catch(err => {
+            console.error('Quick config update failed:', err);
+            toast.show('Fehler beim Speichern');
+        });
     }
 
     // --- Posture & Mode Control ---
     async function updateControlMode(mode) {
-        const res = await fetch(`/api/mode/${mode}`, { method: 'POST' });
-        if (res.ok) {
-            syncPostureLock(mode);
-            toast.show(`Modus: ${mode === 'autonomous' ? 'Autonom' : 'Manuell'}`);
+        try {
+            const res = await fetch(`/api/mode/${mode}`, { method: 'POST' });
+            if (res.ok) {
+                syncPostureLock(mode);
+                toast.show(`Modus: ${mode === 'autonomous' ? 'Autonom' : 'Manuell'}`);
+            } else {
+                toast.show('Fehler beim Moduswechsel');
+            }
+        } catch (err) {
+            console.error('Mode change failed:', err);
+            toast.show('Verbindungsfehler');
         }
     }
 
@@ -1702,7 +1850,11 @@
         }
 
         document.getElementById('height-val').innerText = finalVal.toFixed(2) + 'mm';
-        fetch(`/api/height/${finalVal}`, { method: 'POST' });
+        fetch(`/api/height/${finalVal}`, { method: 'POST' })
+            .catch(err => {
+                console.error('Height change failed:', err);
+                toast.show('Fehler: Höhe konnte nicht geändert werden');
+            });
     }
 
     const postureTargets = {};
@@ -1719,17 +1871,41 @@
         document.getElementById(`val-${key}`).innerText = finalVal.toFixed(2) + unit;
 
         postureTargets[key] = finalVal;
-        // Throttled or direct? Direct for now as it's a few sliders.
-        await fetch('/api/body/pose', {
+        fetch('/api/body/pose', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(postureTargets)
+        }).catch(err => {
+            console.error('Body pose update failed:', err);
+            toast.show('Fehler: Pose konnte nicht aktualisiert werden');
         });
     }
+    
     async function saveAllSettings() {
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = 'Speichere...';
+        btn.disabled = true;
+        
         const data = { "mqtt.broker": document.getElementById('cfg-mqtt-broker').value };
-        await fetch('/api/config/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        alert("Einstellungen gespeichert!");
+        try {
+            const res = await fetch('/api/config/update', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(data) 
+            });
+            if (res.ok) {
+                toast.show('Einstellungen gespeichert!');
+            } else {
+                toast.show('Fehler beim Speichern');
+            }
+        } catch (err) {
+            console.error('Settings save failed:', err);
+            toast.show('Fehler: Verbindung zum Server verloren');
+        } finally {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
     }
     const limbs = { l1: 25, l2: 55, l3: 60 }; // From ik.py
 
@@ -1879,6 +2055,13 @@
                 if (buz) {
                     buz.innerText = data.buzzer && data.buzzer.active ? 'ON' : 'OFF';
                     buz.classList.toggle('active', data.buzzer && data.buzzer.active);
+                }
+                
+                // Update face detection display
+                if (data.detected_face) {
+                    updateDetectionDisplay(data.detected_face.name, data.detected_face.trust);
+                } else {
+                    updateDetectionDisplay(null);
                 }
             }
 

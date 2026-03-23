@@ -48,9 +48,9 @@
 
 | ID | Task | Agent | Status | Details |
 |----|------|-------|--------|---------|
-| P3-1 | Dashboard UI Testen | frontend_tester | backlog | API Integration, Responsive Design, Accessibility |
-| P3-2 | Control Panel Verbessern | frontend_dev | backlog | Buttons, Status-Anzeige, Error Handling |
-| P3-3 | Vision Panel UI | frontend_dev | backlog | Kamera-Feed, Face Recognition Anzeige |
+| ~~P3-1~~ | ~~Dashboard UI Testen~~ | frontend_tester | **✅ DONE** | 36 API/UI/Vision Tests erstellt, Manuelle Test-Checkliste. 166 Tests bestanden. |
+| ~~P3-2~~ | ~~Control Panel Verbessern~~ | frontend_dev | **✅ DONE** | Error Handling für alle fetch() calls, Loading States für Save-Buttons, Toast-Benachrichtigungen. |
+| ~~P3-3~~ | ~~Vision Panel UI Verbesserungen~~ | frontend_dev | **✅ DONE** | Camera-Status-Indikator, FPS-Anzeige, Face Detection Overlay, /api/status mit detected_face. |
 
 ### 🟢 Priorität 4 - BACKLOG
 
