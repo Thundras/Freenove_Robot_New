@@ -1,6 +1,7 @@
 import yaml
 import logging
-from typing import Dict, Any, List
+import os
+from typing import Dict, Any, List, Optional
 from .bt_core import (
     Selector,
     Sequence,
@@ -178,3 +179,49 @@ class BehaviorFactory:
             )
 
         return node
+
+
+def get_full_registry() -> Dict[str, Any]:
+    """
+    Get the complete behavior registry including built-in and plugin behaviors.
+
+    Returns:
+        Dictionary mapping behavior names to their classes
+    """
+    from .plugins import get_all_plugins
+
+    full_registry = BEHAVIOR_REGISTRY.copy()
+
+    for name, plugin_class in get_all_plugins().items():
+        full_registry[name] = plugin_class
+
+    return full_registry
+
+
+def load_plugins_from_config(config_path: Optional[str] = None) -> List[str]:
+    """
+    Load plugins based on config settings.
+
+    Args:
+        config_path: Optional path to config with plugin settings
+
+    Returns:
+        List of loaded plugin names
+    """
+    from .plugins import load_plugins_from_directory, register_plugin
+
+    loaded = []
+
+    if config_path is None:
+        module_dir = os.path.dirname(os.path.dirname(__file__))
+        config_path = os.path.join(module_dir, "config", "config.yaml")
+
+    plugin_dir = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "brain", "plugins"
+    )
+
+    if os.path.isdir(plugin_dir):
+        loaded = load_plugins_from_directory(plugin_dir)
+        logger.info(f"Loaded {len(loaded)} plugins from {plugin_dir}")
+
+    return loaded
