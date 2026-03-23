@@ -57,7 +57,7 @@
 | ID | Task | Agent | Status | Details |
 |----|------|-------|--------|---------|
 | ~~P4-1~~ | ~~Plugin Architektur~~ | developer | **✅ DONE** | Plugin-System erstellt, DanceBehavior Beispiel-Plugin, 18 Tests bestanden |
-| P4-2 | Systemd Service File | developer | backlog | Auto-Restart bei Failure, Proper Shutdown |
+| ~~P4-2~~ | ~~Systemd Service File~~ | developer | **✅ DONE** | Service-Datei mit Auto-Restart, Graceful Shutdown, Setup-Script, 11 Tests bestanden |
 | P4-3 | API Dokumentation | developer | backlog | OpenAPI/Swagger Spec für Web Endpoints |
 | P4-4 | Battery Low-Voltage Protection | developer | backlog | Auto-Shutdown bei kritischem Akkustand |
 

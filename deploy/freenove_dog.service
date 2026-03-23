@@ -1,0 +1,52 @@
+# Freenove Robot Dog Service
+# Install: sudo cp freenove_dog.service /etc/systemd/system/
+# Enable: sudo systemctl enable freenove_dog
+# Start:  sudo systemctl start freenove_dog
+# Status: sudo systemctl status freenove_dog
+# Logs:   journalctl -u freenove_dog -f
+
+[Unit]
+Description=Freenove Robot Dog 2.0
+After=network.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Freenove_Robot_New
+
+# Python executable
+Environment="PATH=/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+
+# Simulation mode (set to 'false' for hardware)
+Environment="SIMULATION_MODE=true"
+
+# Command to start the robot
+ExecStart=/home/pi/.local/bin/python /home/pi/Freenove_Robot_New/main.py
+
+# Graceful shutdown
+ExecStop=/bin/kill -TERM $MAINPID
+TimeoutStopSec=10
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=80%
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/Freenove_Robot_New/logs
+
+[Install]
+WantedBy=multi-user.target
