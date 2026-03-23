@@ -42,6 +42,17 @@ Ein zentraler Bestandteil der Intelligenz ist das **Soziale Gedächtnis** (`Soci
 *   **Persistent Storage:** Gesichter und zugehörige Fotos werden in `face_db.json` und einem `faces/` Verzeichnis dauerhaft gespeichert.
 *   **Identity Feedback:** Sobald die KI eine Person identifiziert hat, wird der Name via `Identity Queue` zurück an den Vision-Prozess gesendet, um ihn im Video-Overlay anzuzeigen.
 *   **Garbage Collection:** Automatische Löschung flüchtiger Detektionen (Stranger, <15s Kontakt) nach 2 Stunden Inaktivität.
+*   **Konfigurierbare Thresholds:** Face Recognition nutzt Config-Parameter:
+    *   `face_match_threshold`: L2-Distanz für Gesichtsabgleich (Standard: 1.0)
+    *   `face_new_angle_threshold`: Distanz für neue Ansicht (Standard: 0.5)
+    *   `face_embedding_alpha`: Update-Rate für Embedding-Anpassung (Standard: 0.01)
+    *   `face_max_templates`: Max Templates pro Gesicht (Standard: 10)
+
+### C. Vision Watchdog
+Der IntelligenceController überwacht den Vision-Prozess:
+*   **Watchdog-Timeout:** Neustart nach 30s Inaktivität (konfigurierbar)
+*   **Boot-Grace-Period:** 60s Wartezeit während Kamera-Initialisierung
+*   **Max-Restarts:** Max 5 Neustart-Versuche bevor aufgegeben
 
 ## 3. Kommunikation & Connectivity
 *   **MQTT (Home Assistant):** Bietet Auto-Discovery für Sensoren und Schalter.

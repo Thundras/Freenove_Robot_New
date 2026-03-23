@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 class WebServer:
     def __init__(self, config: ConfigManager, movement_engine=None, intelligence=None, servo_ctrl=None):
         self.app = Flask(__name__)
+        logger.info(f"Flask Template Folder: {self.app.template_folder}")
+        logger.info(f"Flask Root Path: {self.app.root_path}")
         # Silence Flask & Werkzeug access logs completely
         import logging as py_logging
         py_logging.getLogger('werkzeug').setLevel(py_logging.ERROR)
@@ -197,6 +199,11 @@ class WebServer:
             if self.movement:
                 status["pose"] = getattr(self.movement, "current_pose", "normal")
                 status["gait"] = getattr(self.movement, "current_gait", "trot")
+                status["height"] = getattr(self.movement, "base_height", 105.0)
+                status["body_pose"] = getattr(self.movement, "current_body_pose", {})
+                
+            if self.servo_ctrl:
+                status["servos"] = self.servo_ctrl.get_servos()
                 
             return jsonify(status)
 

@@ -110,6 +110,18 @@ system:
   shoulder_to_body_offset: 50
   body_length: 140
   body_width: 80
+  # Vision Watchdog Settings
+  vision_watchdog_timeout: 30.0      # seconds before restart attempt
+  vision_max_restarts: 5              # maximum restart attempts before giving up
+  vision_boot_timeout: 60.0          # grace period during startup (camera init)
+  # Queue Consumer Settings
+  queue_consumer_timeout: 0.01       # seconds to wait for queue item
+  max_queue_items_per_update: 3      # max items to process per update cycle
+  # Face Recognition Settings
+  face_match_threshold: 1.0          # L2 distance for face match
+  face_new_angle_threshold: 0.5       # Distance for new template (viewpoint)
+  face_embedding_alpha: 0.01          # Update rate for embedding adaptation
+  face_max_templates: 10              # Maximum templates per face
 mapping:
   markers:
     '0':

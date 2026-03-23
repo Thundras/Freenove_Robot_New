@@ -6,6 +6,7 @@ from .base import IServoController, ISensor, SensorData, IMUData, BatteryStatus
 
 logger = logging.getLogger(__name__)
 
+
 class MockServoController(IServoController):
     def __init__(self, config: Optional[ConfigManager] = None):
         self.config = config
@@ -14,7 +15,7 @@ class MockServoController(IServoController):
 
     def set_angle(self, channel: int, angle: float) -> None:
         self.angles[str(channel)] = angle
-        
+
     def update_poses(self, poses: Dict[str, Any], ik_engine: Any) -> None:
         """Mock: Calculate angles respecting config (inversion/middle/clamp)"""
         for leg_prefix, coords in poses.items():
@@ -22,19 +23,26 @@ class MockServoController(IServoController):
             leg_cfg = None
             if self.config:
                 leg_cfg = self.config.get(f"servos.leg_{leg_prefix}")
-            
+
             x, y, z = coords
             try:
                 # Pass the servo limits to the IK engine so it calculates a physically achievable pose
                 angles = ik_engine.calculate_angles(x, y, z, limits=leg_cfg)
-                
-                # Mapping: Joint_1/2/3
-                for part in ["joint_1", "joint_2", "joint_3"]:
+
+                # Mapping: config uses joint_1/2/3, LegAngles uses shoulder/thigh/shin
+                config_to_field = {
+                    "joint_1": "shoulder",
+                    "joint_2": "thigh",
+                    "joint_3": "shin",
+                }
+                for config_key in ["joint_1", "joint_2", "joint_3"]:
                     p_cfg = {}
-                    if leg_cfg: p_cfg = leg_cfg.get(part, {})
-                    
-                    angle_ik = getattr(angles, part)
-                    
+                    if leg_cfg:
+                        p_cfg = leg_cfg.get(config_key, {})
+
+                    field_name = config_to_field[config_key]
+                    angle_ik = getattr(angles, field_name)
+
                     # All joints now use 90 as the neutral midpoint in our IK
                     neutral = 90
                     delta = angle_ik - neutral
@@ -42,15 +50,15 @@ class MockServoController(IServoController):
                     # Apply inversion
                     if p_cfg.get("inverted", False):
                         delta = -delta
-                        
+
                     # Final angle = middle + delta
                     middle = p_cfg.get("middle", 90)
                     final_angle = middle + delta
-                    
-                    self.angles[f"{leg_prefix}_{part}"] = {
+
+                    self.angles[f"{leg_prefix}_{field_name}"] = {
                         "angle": final_angle,
                         "raw_angle": angle_ik,
-                        "channel": p_cfg.get("channel", -1)
+                        "channel": p_cfg.get("channel", -1),
                     }
             except Exception as e:
                 logger.debug(f"Mock IK Error for leg {leg_prefix}: {e}")
@@ -62,13 +70,18 @@ class MockServoController(IServoController):
     def get_servos(self) -> Dict[str, Any]:
         return self.angles
 
+
 class MockIMU(ISensor):
     def __init__(self):
         self.data = IMUData(
             timestamp=time.time(),
             metadata={},
-            roll=0.0, pitch=0.0, yaw=0.0,
-            accel_x=0.0, accel_y=0.0, accel_z=1.0 # 1G
+            roll=0.0,
+            pitch=0.0,
+            yaw=0.0,
+            accel_x=0.0,
+            accel_y=0.0,
+            accel_z=1.0,  # 1G
         )
 
     def update(self) -> None:
@@ -81,14 +94,11 @@ class MockIMU(ISensor):
     def get_data(self) -> IMUData:
         return self.data
 
+
 class MockBattery(ISensor):
     def __init__(self):
         self.data = BatteryStatus(
-            timestamp=time.time(),
-            metadata={},
-            voltage=8.0,
-            percentage=95,
-            is_low=False
+            timestamp=time.time(), metadata={}, voltage=8.0, percentage=95, is_low=False
         )
 
     def update(self) -> None:
@@ -99,28 +109,32 @@ class MockBattery(ISensor):
     def get_data(self) -> BatteryStatus:
         return self.data
 
+
 class MockUltrasonic(ISensor):
     def __init__(self):
         self.distance = 100.0
+
     def update(self):
         pass
+
     def get_data(self) -> SensorData:
         return SensorData(time.time(), {"distance_cm": self.distance})
+
 
 class MockBuzzer:
     def __init__(self):
         self.is_beeping = False
         self.stop_time = 0
-        
+
     def beep(self, duration=0.1):
         logger.debug(f"Mock Buzzer: BEEP ({duration}s)")
         self.is_beeping = True
         self.stop_time = time.time() + duration
-        
+
     def on(self):
         self.is_beeping = True
-        self.stop_time = time.time() + 999999 # Forever
-        
+        self.stop_time = time.time() + 999999  # Forever
+
     def off(self):
         self.is_beeping = False
         self.stop_time = 0
@@ -129,28 +143,55 @@ class MockBuzzer:
         if self.is_beeping and time.time() > self.stop_time:
             self.is_beeping = False
 
+
 class MockLed:
     def __init__(self):
         self.num_pixels = 7
-        self.pixels = [[0,0,0]] * self.num_pixels
-        self.current_state = {"pattern": "off", "color": [0, 0, 0], "pixels": self.pixels}
+        self.pixels = [[0, 0, 0]] * self.num_pixels
+        self.current_state = {
+            "pattern": "off",
+            "color": [0, 0, 0],
+            "pixels": self.pixels,
+        }
+
     def set_color(self, index, r, g, b):
         if 0 <= index < self.num_pixels:
             self.pixels[index] = [r, g, b]
-        self.current_state = {"pattern": "manual", "color": [r, g, b], "pixels": self.pixels}
+        self.current_state = {
+            "pattern": "manual",
+            "color": [r, g, b],
+            "pixels": self.pixels,
+        }
+
     def fill(self, r, g, b):
         self.pixels = [[r, g, b]] * self.num_pixels
-        self.current_state = {"pattern": "manual", "color": [r, g, b], "pixels": self.pixels}
+        self.current_state = {
+            "pattern": "manual",
+            "color": [r, g, b],
+            "pixels": self.pixels,
+        }
+
     def show(self):
         pass
+
     def animate(self, pattern, color, speed=1.0):
         # In a mock, we don't simulate the step-by-step animation of individual pixels
         # but we can fill the pixels list with the color to show it's active
         self.pixels = [list(color)] * self.num_pixels
-        self.current_state = {"pattern": pattern, "color": list(color), "pixels": self.pixels}
+        self.current_state = {
+            "pattern": pattern,
+            "color": list(color),
+            "pixels": self.pixels,
+        }
+
     def clear(self):
-        self.pixels = [[0,0,0]] * self.num_pixels
-        self.current_state = {"pattern": "off", "color": [0, 0, 0], "pixels": self.pixels}
+        self.pixels = [[0, 0, 0]] * self.num_pixels
+        self.current_state = {
+            "pattern": "off",
+            "color": [0, 0, 0],
+            "pixels": self.pixels,
+        }
+
 
 class MockGait:
     def __init__(self):
@@ -158,6 +199,8 @@ class MockGait:
         self.turn_rate = 0.0
         self.current_pose = "normal"
         self.current_speed = 0.0
+        self.look_at_yaw = 0.0
+        self.look_at_pitch = 0.0
 
     def set_target_speed(self, speed, turn=0.0):
         self.target_speed = speed
@@ -165,6 +208,10 @@ class MockGait:
 
     def set_pose(self, pose_name):
         self.current_pose = pose_name
+
+    def set_look_at(self, yaw, pitch):
+        self.look_at_yaw = yaw
+        self.look_at_pitch = pitch
 
     def update(self, dt):
         self.current_speed = self.target_speed

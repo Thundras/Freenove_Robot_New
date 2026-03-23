@@ -8,6 +8,225 @@
     <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap' rel='stylesheet'>
     <link rel='stylesheet' href="{{ url_for('static', filename='style.css') }}">
     <style>
+        :root {
+            --header-height: 70px;
+            --sidebar-width: 280px;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background: #0f172a;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+        }
+
+        #global-header {
+            height: var(--header-height);
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            z-index: 1000;
+        }
+
+        .header-main {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .header-main h1 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+
+        .header-main h1 span {
+            color: var(--accent);
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-left: 5px;
+        }
+
+        .header-telemetry {
+            display: flex;
+            gap: 3rem;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 8px 30px;
+            border-radius: 40px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .tel-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .tel-label {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+        }
+
+        .tel-val {
+            font-size: 1.1rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn-ctrl-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+
+        .btn-ctrl-circle:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.05);
+        }
+
+        /* Tabs Restructure */
+        .tabs-nav {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 10px 2rem;
+            display: flex;
+            gap: 10px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-dim);
+            padding: 8px 18px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .tab-btn.active {
+            background: var(--accent);
+            color: #0f172a;
+            border-color: var(--accent);
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.4);
+        }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Biometry specific */
+        .mood-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .mood-bar-bg {
+            background: rgba(255, 255, 255, 0.1);
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .mood-bar-fill {
+            height: 100%;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mood-bar-fill.energy {
+            background: #10b981;
+        }
+
+        .mood-bar-fill.excitement {
+            background: #3b82f6;
+        }
+
+        .mood-bar-fill.comfort {
+            background: #f59e0b;
+        }
+
+        .mood-label-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .mood-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 5px;
+        }
+
+        /* Vision Card */
+        .vision-card {
+            padding: 0 !important;
+            border-radius: 20px;
+            overflow: hidden;
+            background: black !important;
+        }
+
+        .main-video img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .no-gap {
+            gap: 1.5rem;
+        }
+
+        /* Kinematics Grid */
+        .kinematics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
         .led-container {
             display: flex;
             align-items: center;
@@ -110,54 +329,72 @@
             }
         }
 
-        .led-spin {
-            animation: led-rotate 1.5s linear infinite;
+        .led-ring {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            background: radial-gradient(circle at center, #065f46 0%, #064e3b 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #064e3b;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 5px rgba(0, 0, 0, 0.3);
+            transition: all 0.5s;
         }
 
-        @keyframes led-rotate {
-            from {
-                transform: rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg);
-            }
+        .led-dot {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 1px;
+            background: #111;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s;
+            transform: translate(-50%, -50%);
         }
 
-        .led-blink .led-dot {
-            animation: led-blink-anim 0.5s step-start infinite;
+        .led-dot.active {
+            box-shadow: 0 0 10px currentColor, inset 0 0 3px white;
         }
 
-        @keyframes led-blink-anim {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.3;
-            }
+        /* 44x44 ring, center (22,22), Radius = 16 */
+        #led-3 {
+            top: 15%;
+            left: 50%;
         }
 
-
-        .led-breathe .led-dot {
-            animation: led-breathe-anim 2s ease-in-out infinite;
+        #led-4 {
+            top: 25.4%;
+            left: 74.6%;
         }
 
-        @keyframes led-breathe-anim {
-
-            0%,
-            100% {
-                filter: brightness(1.2) saturate(1.2);
-                transform: translate(-50%, -50%) scale(1);
-            }
-
-            50% {
-                filter: brightness(0.6) saturate(0.8);
-                transform: translate(-50%, -50%) scale(0.9);
-            }
+        #led-5 {
+            top: 50%;
+            left: 85%;
         }
+
+        #led-6 {
+            top: 74.6%;
+            left: 74.6%;
+        }
+
+        #led-0 {
+            top: 74.6%;
+            left: 25.4%;
+        }
+
+        #led-1 {
+            top: 50%;
+            left: 15%;
+        }
+
+        #led-2 {
+            top: 25.4%;
+            left: 25.4%;
+        }
+
+        /* 315° (Top-Left) */
 
         .face-avatar {
             width: 80px;
@@ -663,510 +900,514 @@
             box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
         }
 
-        .calibration-table th {
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-size: 0.75rem;
-            opacity: 0.8;
+        /* Kinematics refinement */
+        .kinematics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
         }
 
-        .calibration-table td {
-            vertical-align: middle;
+        .leg-card {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .leg-canvas {
+            width: 100%;
+            height: 180px;
+            background: radial-gradient(circle at center, rgba(59, 130, 246, 0.05) 0%, transparent 70%);
+        }
+
+        .posture-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .posture-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .posture-item label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            font-weight: 700;
+        }
+
+        .slider-val {
+            font-size: 0.8rem;
+            font-weight: 800;
+            color: var(--accent);
+            text-align: right;
+            min-width: 45px;
+        }
+
+        .posture-controls.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+            filter: grayscale(0.8);
         }
     </style>
 </head>
 
-<body>
-    <header>
-        <h1>ROBOT CONTROL <span>{{ instance_id }}</span></h1>
-        <div style="display: flex; align-items: center; gap: 15px;">
-            <div class="led-container">
-                <span
-                    style="font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">NeoPixel
-                    Ring</span>
-                <div class="led-ring">
-                    <div id="led-0" class="led-dot"></div>
-                    <div id="led-1" class="led-dot"></div>
-                    <div id="led-2" class="led-dot"></div>
-                    <div id="led-3" class="led-dot"></div>
-                    <div id="led-4" class="led-dot"></div>
-                    <div id="led-5" class="led-dot"></div>
-                    <div id="led-6" class="led-dot"></div>
-                </div>
+<div id="global-header">
+    <div class="header-main">
+        <h1>ROBOT CONTROL <span style="font-size: 0.5em; opacity: 0.5;">{{ instance_id }} [v4.2-precision]</span></h1>
+        <div id='status-badge' class='badge'>System Online</div>
+    </div>
+    <div class="header-telemetry">
+        <div class="tel-item">
+            <span class="tel-label">Batterie</span>
+            <span id="header-battery" class="tel-val">-- V</span>
+        </div>
+        <div class="tel-item">
+            <span class="tel-label">Pose</span>
+            <span id="header-pose" class="tel-val">Normal</span>
+        </div>
+        <div class="tel-item">
+            <span class="tel-label">Gang</span>
+            <span id="header-gait" class="tel-val">Trot</span>
+        </div>
+        <div class="tel-item">
+            <span class="tel-label">Mode</span>
+            <span id="header-mode" class="tel-val">Auto</span>
+        </div>
+    </div>
+    <div class="header-actions">
+        <div class="led-container">
+            <div class="led-ring">
+                <div id="led-0" class="led-dot"></div>
+                <div id="led-1" class="led-dot"></div>
+                <div id="led-2" class="led-dot"></div>
+                <div id="led-3" class="led-dot"></div>
+                <div id="led-4" class="led-dot"></div>
+                <div id="led-5" class="led-dot"></div>
+                <div id="led-6" class="led-dot"></div>
             </div>
-            <button id="audio-toggle" class="btn-ctrl"
-                style="width: 40px; height: 40px; border-radius: 50%; padding: 0;" onclick="toggleAudio()"
-                title="Audio Feedback">🔇</button>
-            <div id='status-badge' class='badge'>System Online</div>
         </div>
-    </header>
-    <nav class='tabs-nav'>
-        <button class='tab-btn active' onclick="showTab('tab-control', this)">Live Control</button>
-        <button class='tab-btn' onclick="showTab('tab-social', this)">Social Memory</button>
-        <button class='tab-btn' onclick="showTab('tab-map', this)">Environment Map</button>
-        <button class='tab-btn' onclick="showTab('tab-servos', this)">Servos</button>
-        <button class='tab-btn' onclick="showTab('tab-markers', this)">Markers</button>
-        <button class='tab-btn' onclick="showTab('tab-settings', this)">System Settings</button>
-    </nav>
-    <div id='tab-control' class='tab-content active'>
-        <div class='video-container'>
-            <img src="/api/camera_stream" alt="Live View">
-        </div>
-        <div class='dashboard-grid'>
-            <section class='card'>
-                <h2>🕹️ Motion Control</h2>
-                <div class='joystick'>
-                    <button class='btn-ctrl' style='grid-area: up' onmousedown="sendCommand('forward')"
-                        onmouseup="stopCommand()">▲</button>
-                    <button class='btn-ctrl' style='grid-area: left' onmousedown="sendCommand('left')"
-                        onmouseup="stopCommand()">◀</button>
-                    <button class='btn-ctrl' style='grid-area: stop' onclick="sendCommand('stop')">■</button>
-                    <button class='btn-ctrl' style='grid-area: right' onmousedown="sendCommand('right')"
-                        onmouseup="stopCommand()">▶</button>
-                    <button class='btn-ctrl' style='grid-area: down' onmousedown="sendCommand('backward')"
-                        onmouseup="stopCommand()">▼</button>
-                </div>
-            </section>
-            <section class='card'>
-                <h2>📊 Status & Mode</h2>
-                <div class='setting-item'>
-                    <label>Übertragungsgeschwindigkeit (Gait Speed)</label>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <input type="range" min="0" max="100" value="0" id="speed-slider" style="flex: 1;"
-                            oninput="updateSpeed(this.value)">
-                        <span id="speed-val" style="font-size: 0.8rem; color: var(--accent); width: 40px;">0%</span>
+        <button id="audio-toggle" class="btn-ctrl-circle" onclick="toggleAudio()" title="Audio Feedback">🔇</button>
+    </div>
+</div>
+
+<nav class='tabs-nav'>
+    <button class='tab-btn active' onclick="showTab('tab-status', this)">📊 Status</button>
+    <button class='tab-btn' onclick="showTab('tab-kinematics', this)">🦾 Kinematik</button>
+    <button class='tab-btn' onclick="showTab('tab-map', this)">🗺️ Umgebung</button>
+    <button class='tab-btn' onclick="showTab('tab-social', this)">🧠 Gedächtnis</button>
+    <button class='tab-btn' onclick="showTab('tab-settings', this)">⚙️ System</button>
+</nav>
+<div id='tab-status' class='tab-content active'>
+    <div class="dashboard-grid no-gap">
+        <section class="card vision-card" style="grid-column: span 2;">
+            <div class="video-container main-video">
+                <img src="/api/camera_stream" alt="Live View">
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>📈 Biometrie & Stimmung</h2>
+            <div class="mood-grid">
+                <div class="mood-bar-wrapper">
+                    <div class="mood-label-row">
+                        <span>Energie</span> <span id="mood-energy-pct">100%</span>
                     </div>
-                </div>
-                <div class='setting-item' id="gait-display-item">
-                    <label>Aktuelle Gangart (Auto-Gait)</label>
-                    <div class="gait-display" id="gait-view"
-                        style="font-size: 0.8rem; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 4px;">
-                        Status: <b id="current-gait-label" style="color: var(--accent);">Idle</b>
+                    <div class="mood-bar-bg">
+                        <div id="mood-energy-bar" class="mood-bar-fill energy"></div>
+                    </div>
+                    <div class="mood-controls">
+                        <input type="range" min="0" max="100" value="100" onchange="simulateEnergy(this.value)">
+                        <button class="btn-mini" onclick="setAutoEnergy()">Auto</button>
                     </div>
                 </div>
 
-                <div class='setting-item'>
-                    <label>Stimmung (Mood / Biology)</label>
-                    <div class="mood-container"
-                        style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
-                        <div class="mood-bar-wrapper">
-                            <div
-                                style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
-                                <span>Energie</span> <span id="mood-energy-pct">100%</span>
-                            </div>
-                            <div
-                                style="background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; overflow: hidden; margin-bottom: 5px;">
-                                <div id="mood-energy-bar"
-                                    style="width: 100%; height: 100%; background: #10b981; transition: width 0.5s;">
-                                </div>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <input type="range" min="0" max="100" value="100" id="energy-sim-slider"
-                                    style="flex: 1; height: 3px;" onchange="simulateEnergy(this.value)">
-                                <button class="btn-ctrl" style="padding: 2px 8px; font-size: 0.6rem; height: 18px;"
-                                    onclick="setAutoEnergy()">Auto</button>
-                            </div>
-                        </div>
-                        <div class="mood-bar-wrapper">
-                            <div
-                                style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
-                                <span>Aufregung</span> <span id="mood-excitement-pct">50%</span>
-                            </div>
-                            <div
-                                style="background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; overflow: hidden;">
-                                <div id="mood-excitement-bar"
-                                    style="width: 50%; height: 100%; background: #3b82f6; transition: width 0.5s;">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mood-bar-wrapper">
-                            <div
-                                style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
-                                <span>Vertrauen</span> <span id="mood-comfort-pct">80%</span>
-                            </div>
-                            <div
-                                style="background: rgba(255,255,255,0.1); height: 4px; border-radius: 2px; overflow: hidden;">
-                                <div id="mood-comfort-bar"
-                                    style="width: 80%; height: 100%; background: #f59e0b; transition: width 0.5s;">
-                                </div>
-                            </div>
-                        </div>
+                <div class="mood-bar-wrapper">
+                    <div class="mood-label-row">
+                        <span>Aufregung</span> <span id="mood-excitement-pct">50%</span>
+                    </div>
+                    <div class="mood-bar-bg">
+                        <div id="mood-excitement-bar" class="mood-bar-fill excitement"></div>
                     </div>
                 </div>
-                <div class='setting-item'>
-                    <label>Körperhaltung (Pose)</label>
-                    <select id="pose-select" onchange="changePose(this.value)">
-                        <option value="normal">Normal</option>
-                        <option value="submissive">Unterwürfig</option>
-                        <option value="sit">Sitzen</option>
-                        <option value="down">Liegen</option>
-                        <option value="aggressive">Aggressiv</option>
-                        <option value="playful">Verspielt</option>
-                        <option value="calibrate">Kalibrieren (Gerade)</option>
-                    </select>
-                </div>
-                <div class='setting-item'>
-                    <label>Körperhöhe (Body Height)</label>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <input type="range" min="40" max="140" value="105" id="height-slider" style="flex: 1;"
-                            oninput="changeHeight(this.value)">
-                        <span id="height-val" style="font-size: 0.8rem; color: var(--accent); width: 40px;">105mm</span>
+
+                <div class="mood-bar-wrapper">
+                    <div class="mood-label-row">
+                        <span>Komfort</span> <span id="mood-comfort-pct">80%</span>
+                    </div>
+                    <div class="mood-bar-bg">
+                        <div id="mood-comfort-bar" class="mood-bar-fill comfort"></div>
                     </div>
                 </div>
-                <div class='setting-item'
-                    style="border-top: 1px solid var(--glass-border); padding-top: 15px; margin-top: 10px;">
-                    <label>Körper Neigung (Roll / Pitch / Yaw)</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 5px;">
-                        <div>
-                            <span style="font-size: 0.6rem; color: var(--text-dim);">Roll</span>
-                            <input type="range" min="-30" max="30" value="0" step="1" id="body-roll"
-                                oninput="updateBodyPose('roll', this.value)">
-                        </div>
-                        <div>
-                            <span style="font-size: 0.6rem; color: var(--text-dim);">Pitch</span>
-                            <input type="range" min="-30" max="30" value="0" step="1" id="body-pitch"
-                                oninput="updateBodyPose('pitch', this.value)">
-                        </div>
-                        <div>
-                            <span style="font-size: 0.6rem; color: var(--text-dim);">Yaw</span>
-                            <input type="range" min="-30" max="30" value="0" step="1" id="body-yaw"
-                                oninput="updateBodyPose('yaw', this.value)">
-                        </div>
-                    </div>
-                </div>
-                <div class='setting-item'>
-                    <label>Körper Versatz (Shift X / Y / Z)</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 5px;">
-                        <div>
-                            <span style="font-size: 0.6rem; color: var(--text-dim);">Vorn/Zurn (X)</span>
-                            <input type="range" min="-50" max="50" value="0" step="1" id="body-x"
-                                oninput="updateBodyPose('x', this.value)">
-                        </div>
-                        <div>
-                            <span style="font-size: 0.6rem; color: var(--text-dim);">Links/Rechts (Z)</span>
-                            <input type="range" min="-40" max="40" value="0" step="1" id="body-z"
-                                oninput="updateBodyPose('z', this.value)">
-                        </div>
-                        <div>
-                            <span style="font-size: 0.6rem; color: var(--text-dim);">Hoch/Runter (Y)</span>
-                            <input type="range" min="-60" max="60" value="0" step="1" id="body-y"
-                                oninput="updateBodyPose('y', this.value)">
-                        </div>
-                    </div>
-                </div>
-                <div class='setting-item'>
-                    <label>Intelligenz-Modus</label>
-                    <select id="mode-select" onchange="changeMode(this.value)">
-                        <option value="autonomous">Normal / Home</option>
-                        <option value="alarm">Sicherheit / Alarm</option>
-                    </select>
-                </div>
-                <div class='setting-item'>
-                    <label>Batteriestand</label>
-                    <div class='setting-row'>
-                        <span id="battery-val" style="font-weight: 700; color: #10b981;">-- V</span>
-                    </div>
-                </div>
-                <div class='setting-item'>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>🔈 Peripherie</h2>
+            <div class="peripheral-grid">
+                <div class="setting-item">
                     <label>Buzzer</label>
                     <div id="buzzer-val" class="buzzer-indicator">OFF</div>
                 </div>
-                <div class='setting-item'>
-                    <label for="cfg-system-show_vision_debug-main">KI-Einblendungen</label>
-                    <div class='setting-row'>
-                        <span style="font-size: 0.8rem; color: var(--text-dim);">Overlays</span>
-                        <input type="checkbox" id="cfg-system-show_vision_debug-main"
-                            onchange="console.log('Toggle Overlays:', this.checked); updateQuickConfig('system.show_vision_debug', this.checked)">
-                    </div>
-                </div>
-            </section>
-        </div>
-    </div>
-    <div id='tab-social' class='tab-content'>
-        <div class='dashboard-grid'>
-            <section class='card' style="grid-column: span 2;">
-                <h2>🧠 Soziales Gedächtnis</h2>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1.5rem;">
-                    Hier siehst du alle Personen, die der Roboter bereits gesehen hat. Vertrauen baut sich über Zeit auf
-                    (1h Kontakt = 100% Vertrauen).
-                </p>
-                <div id="faces-list-full" class="faces-grid">
-                    <i style="color: var(--text-dim)">Initialisiere Gedächtnis...</i>
-                </div>
-            </section>
-        </div>
-    </div>
-    <div id='tab-map' class='tab-content'>
-        <div class="dashboard-grid">
-            <section class="card"
-                style="grid-column: span 2; min-height: 500px; display: flex; flex-direction: column;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h2>🗺️ Environmental Map (SLAM Light)</h2>
-                    <div style="font-size: 0.8rem; color: var(--text-dim);">
-                        Pos: <span id="robot-pos-txt" style="color: var(--accent);">0, 0</span> |
-                        Yaw: <span id="robot-yaw-txt" style="color: var(--accent);">0°</span>
-                    </div>
-                </div>
-                <div id="map-container"
-                    style="height: 440px; background: rgba(0,0,0,0.3); border-radius: 16px; position: relative; overflow: hidden; border: 1px solid var(--glass-border);">
-                    <canvas id="map-canvas"
-                        style="position: absolute; top:0; left:0; width: 100%; height: 100%; cursor: grab;"></canvas>
-                    <div
-                        style="position: absolute; bottom: 15px; left: 15px; padding: 10px; background: rgba(0,0,0,0.6); border-radius: 8px; font-size: 0.7rem; color: var(--text-dim); pointer-events: none; backdrop-filter: blur(4px);">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></div>
-                            Roboter
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-                            <div style="width: 8px; height: 8px; background: #ef4444; border-radius: 2px;"></div>
-                            Hindernis
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-                            <div style="width: 8px; height: 8px; background: #fbbf24; border-radius: 2px;"></div>
-                            Landmarke (Aruco)
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </div>
-    </div>
-    </div>
-    <div id='tab-servos' class='tab-content'>
-        <div class="dashboard-grid">
-            <section class="card" style="grid-column: span 2;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                    <h2>🦴 Live Servo Monitor</h2>
-                    <div id="servo-sync-status" style="font-size: 0.7rem; color: #10b981; font-weight: 600;">● LIVE SYNC
-                    </div>
-                </div>
-                <div id="servos-viz-grid"
-                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem; justify-items: center;">
-                    <!-- Dynamically filled by JS -->
-                </div>
-                <div id="servo-test-suite"
-                    style="margin-top: 2rem; padding: 1.5rem; background: rgba(255,255,255,0.02); border: 1px dashed var(--glass-border); border-radius: 16px; display: none;">
-                    <h3 style="margin-top: 0; color: var(--accent); font-size: 1rem; margin-bottom: 1rem;">🧪 Servo Test
-                        Suite (Active in Calibration Mode)</h3>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button class="btn-ctrl" onclick="sendServoTest('all_90')">Neutral (90°)</button>
-                        <button class="btn-ctrl" onclick="sendServoTest('sine_wave')">Sine Wave</button>
-                        <button class="btn-ctrl" onclick="sendServoTest('leg_cycle')">Leg Cycle</button>
-                        <button class="btn-ctrl" onclick="sendServoTest('walk_cycle')">Walk Cycle</button>
-                        <button class="btn-ctrl" onclick="sendServoTest('sit')">Sit</button>
-                        <button class="btn-ctrl" onclick="sendServoTest('down')">Down</button>
-                    </div>
-                </div>
-            </section>
-        </div>
-    </div>
-    <div id='tab-markers' class='tab-content'>
-        <div class="dashboard-grid">
-            <section class="card" style="grid-column: span 1;">
-                <h2>🏷️ Marker Registry</h2>
-                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1.5rem;">
-                    Konfiguriere hier die physikalische Größe (mm) für Aruco-Marker.
-                    <br><br>
-                    <a href="https://chev.me/arucogen/" target="_blank"
-                        style="color: var(--accent); text-decoration: none; font-weight: 600;">
-                        ➔ Online Marker Generator öffnen
-                    </a>
-                    (Nutze "4x4_50" Dictionary)
-                </p>
-                <div id="markers-list">
-                    <i style="color: var(--text-dim)">Lädt...</i>
-                </div>
-            </section>
-            <section class="card" style="grid-column: span 1;">
-                <h2>➕ Marker Hinzufügen</h2>
                 <div class="setting-item">
-                    <label>Marker ID</label>
-                    <input type="number" id="m-id" placeholder="z.B. 1">
+                    <label>KI-Overlays</label>
+                    <input type="checkbox" id="cfg-system-show_vision_debug-main"
+                        onchange="updateQuickConfig('system.show_vision_debug', this.checked)">
                 </div>
-                <div class="setting-item">
-                    <label>Physische Größe (mm)</label>
-                    <input type="number" id="m-size" placeholder="z.B. 100">
-                </div>
-                <div class="setting-item">
-                    <label>Name / Ort</label>
-                    <input type="text" id="m-name" placeholder="z.B. Ladestation">
-                </div>
-                <button class="btn-save" onclick="saveMarker()"
-                    style="width: 100%; margin-top: 1rem;">Speichern</button>
-            </section>
-        </div>
+            </div>
+        </section>
     </div>
-    <div id='tab-settings' class='tab-content'>
-        <div class='dashboard-grid'>
-            <section class='card'>
-                <h2>⚙️ Servo Kalibrierung</h2>
-                <div id='servo-list'></div>
-            </section>
-            <section class='card'>
-                <h2>👁️ Vision & Performance</h2>
-                <div class='setting-item'>
-                    <label>Kamera-Stabilisierung</label>
-                    <div class='setting-row'>
-                        <span>Aktiv</span>
-                        <input type="checkbox" id="cfg-system-camera_stabilization"
-                            onchange="updateQuickConfig('system.camera_stabilization', this.checked)">
+</div>
+
+<!-- Phase 3 Content will be moved here in later steps -->
+<div id='tab-kinematics' class='tab-content'>
+    <div class="dashboard-grid">
+        <section class="card" style="grid-column: span 2;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2>🦴 Kinematik-Monitor (2D)</h2>
+                <div id="servo-sync-status" style="font-size: 0.7rem; color: #10b981; font-weight: 600;">● LIVE SYNC
+                </div>
+            </div>
+            <div id="servos-viz-grid" class="kinematics-grid">
+                <div class="leg-card">
+                    <div class="servo-card-header"><span>FRONT LEFT (FL)</span></div>
+                    <canvas id="leg-canvas-fl" class="leg-canvas"></canvas>
+                </div>
+                <div class="leg-card">
+                    <div class="servo-card-header"><span>FRONT RIGHT (FR)</span></div>
+                    <canvas id="leg-canvas-fr" class="leg-canvas"></canvas>
+                </div>
+                <div class="leg-card">
+                    <div class="servo-card-header"><span>REAR LEFT (RL)</span></div>
+                    <canvas id="leg-canvas-rl" class="leg-canvas"></canvas>
+                </div>
+                <div class="leg-card">
+                    <div class="servo-card-header"><span>REAR RIGHT (RR)</span></div>
+                    <canvas id="leg-canvas-rr" class="leg-canvas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2>📐 Körper-Postur</h2>
+                <div class="mode-select-wrapper"
+                    style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 8px; border: 1px solid var(--glass-border);">
+                    <span
+                        style="font-size: 0.65rem; font-weight: 800; color: var(--text-dim); text-transform: uppercase;">Modus:</span>
+                    <select id="control-mode-select" class="mini-input"
+                        style="width: 100px; height: 28px; padding: 0 4px; font-size: 0.75rem;"
+                        onchange="updateControlMode(this.value)">
+                        <option value="autonomous">Auto</option>
+                        <option value="manual">Manuell</option>
+                    </select>
+                </div>
+            </div>
+            <div class="posture-controls" id="posture-slider-container">
+                <div class="posture-item">
+                    <label>Höhe (mm)</label>
+                    <input type="range" min="40" max="140" value="105" step="0.1" id="height-slider"
+                        oninput="changeHeight(this.value)">
+                    <span id="height-val"
+                        style="font-size: 0.8rem; font-weight: 800; color: var(--accent);">105.00mm</span>
+                </div>
+                <div class="posture-item">
+                    <label>Shift X (mm)</label>
+                    <input type="range" min="-30" max="30" value="0" step="0.01" id="posture-x"
+                        oninput="updateBodyPose('x', this.value)">
+                    <span id="val-x" class="slider-val">0.00mm</span>
+                </div>
+                <div class="posture-item">
+                    <label>Roll (deg)</label>
+                    <input type="range" min="-20" max="20" value="0" step="0.01" id="posture-roll"
+                        oninput="updateBodyPose('roll', this.value)">
+                    <span id="val-roll" class="slider-val">0.00°</span>
+                </div>
+                <div class="posture-item">
+                    <label>Shift Y (mm)</label>
+                    <input type="range" min="-30" max="30" value="0" step="0.01" id="posture-y"
+                        oninput="updateBodyPose('y', this.value)">
+                    <span id="val-y" class="slider-val">0.00mm</span>
+                </div>
+                <div class="posture-item">
+                    <label>Pitch (deg)</label>
+                    <input type="range" min="-20" max="20" value="0" step="0.01" id="posture-pitch"
+                        oninput="updateBodyPose('pitch', this.value)">
+                    <span id="val-pitch" class="slider-val">0.00°</span>
+                </div>
+                <div class="posture-item">
+                    <label>Shift Z (mm)</label>
+                    <input type="range" min="-30" max="30" value="0" step="0.01" id="posture-z"
+                        oninput="updateBodyPose('z', this.value)">
+                    <span id="val-z" class="slider-val">0.00mm</span>
+                </div>
+                <div class="posture-item">
+                    <label>Yaw (deg)</label>
+                    <input type="range" min="-15" max="15" value="0" step="0.01" id="posture-yaw"
+                        oninput="updateBodyPose('yaw', this.value)">
+                    <span id="val-yaw" class="slider-val">0.00°</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="card" id="servo-test-suite" style="display: none;">
+            <h2>🧪 Test-Bewegungen</h2>
+            <div class="btn-grid">
+                <button class="btn-ctrl" onclick="sendServoTest('all_90')">Neutral</button>
+                <button class="btn-ctrl" onclick="sendServoTest('sine_wave')">Sine</button>
+                <button class="btn-ctrl" onclick="sendServoTest('leg_cycle')">Leg Cycle</button>
+            </div>
+        </section>
+    </div>
+</div>
+<div id='tab-social' class='tab-content'>
+    <div class='dashboard-grid'>
+        <section class='card' style="grid-column: span 2;">
+            <h2>🧠 Soziales Gedächtnis</h2>
+            <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1.5rem;">
+                Hier siehst du alle Personen, die der Roboter bereits gesehen hat. Vertrauen baut sich über Zeit auf
+                (1h Kontakt = 100% Vertrauen).
+            </p>
+            <div id="faces-list-full" class="faces-grid">
+                <i style="color: var(--text-dim)">Initialisiere Gedächtnis...</i>
+            </div>
+        </section>
+    </div>
+</div>
+<div id='tab-map' class='tab-content'>
+    <div class="dashboard-grid">
+        <section class="card" style="grid-column: span 2; min-height: 500px; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>🗺️ Umgebungskarte (SLAM)</h2>
+                <div style="font-size: 0.8rem; color: var(--text-dim);">
+                    Pos: <span id="robot-pos-txt" style="color: var(--accent);">0, 0</span> |
+                    Yaw: <span id="robot-yaw-txt" style="color: var(--accent);">0°</span>
+                </div>
+            </div>
+            <div id="map-container"
+                style="height: 480px; background: rgba(0,0,0,0.3); border-radius: 16px; position: relative; overflow: hidden; border: 1px solid var(--glass-border);">
+                <canvas id="map-canvas"
+                    style="position: absolute; top:0; left:0; width: 100%; height: 100%; cursor: grab;"></canvas>
+                <div
+                    style="position: absolute; bottom: 15px; left: 15px; padding: 10px; background: rgba(0,0,0,0.6); border-radius: 8px; font-size: 0.7rem; color: var(--text-dim); pointer-events: none; backdrop-filter: blur(4px);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></div>
+                        Roboter
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                        <div style="width: 8px; height: 8px; background: #ef4444; border-radius: 2px;"></div>
+                        Hindernis
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                        <div style="width: 8px; height: 8px; background: #fbbf24; border-radius: 2px;"></div>
+                        Landmarke
                     </div>
                 </div>
-                <div class='setting-item'>
-                    <label>Vision Skip Frames (CPU Save)</label>
-                    <input type="range" min="1" max="10" value="2" id="cfg-system-vision_processing_skip"
-                        oninput="updateQuickConfig('system.vision_processing_skip', parseInt(this.value))">
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>🏷️ Marker-Registry</h2>
+            <p style="color: var(--text-dim); font-size: 0.8rem; margin-bottom: 1rem;">
+                Physische Größe (mm) für Aruco-Marker (4x4_50).
+            </p>
+            <div id="markers-list" style="max-height: 200px; overflow-y: auto;">
+                <i style="color: var(--text-dim)">Lädt...</i>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>➕ Marker Hinzufügen</h2>
+            <div class="posture-controls" style="grid-template-columns: 1fr; gap: 0.75rem;">
+                <div class="posture-item">
+                    <label style="font-size: 0.7rem;">ID</label>
+                    <input type="number" id="m-id" placeholder="ID">
                 </div>
-                <h2 style="margin-top:2rem">🌐 MQTT Konnektivität</h2>
-                <div class='setting-item'>
-                    <label>Broker Adresse</label>
-                    <input type="text" id="cfg-mqtt-broker" placeholder="z.B. 192.168.1.10">
+                <div class="posture-item">
+                    <label style="font-size: 0.7rem;">Größe (mm)</label>
+                    <input type="number" id="m-size" placeholder="mm">
                 </div>
-                <button class='btn-save' onclick="saveAllSettings()">Einstellungen Speichern</button>
-            </section>
-        </div>
-    </div>
-
-    <div id="rename-modal" class="modal-base">
-        <div class="modal-card">
-            <h3>Namen ändern</h3>
-            <p id="modal-desc" style="color: var(--text-dim); margin-bottom: 1rem;"></p>
-            <input type="text" id="rename-input" class="modal-input" placeholder="Name eingeben...">
-            <div class="modal-actions">
-                <button class="modal-btn modal-btn-cancel" onclick="closeRenameModal()">Abbrechen</button>
-                <button class="modal-btn modal-btn-save" onclick="submitRename()">Speichern</button>
+                <div class="posture-item">
+                    <label style="font-size: 0.7rem;">Name / Ort</label>
+                    <input type="text" id="m-name" placeholder="Name">
+                </div>
+                <button class="btn-save" onclick="saveMarker()" style="padding: 0.5rem;">Speichern</button>
             </div>
-        </div>
+        </section>
     </div>
-
-    <div id="delete-marker-modal" class="modal-base">
-        <div class="modal-card">
-            <h3>Marker löschen?</h3>
-            <p id="delete-modal-desc" style="color: var(--text-dim); margin-bottom: 1rem;"></p>
-            <div class="modal-actions">
-                <button class="modal-btn modal-btn-cancel" onclick="closeDeleteMarkerModal()">Abbrechen</button>
-                <button class="modal-btn modal-btn-save" style="background: #ef4444;"
-                    onclick="confirmDeleteMarker()">Löschen</button>
+</div>
+<div id='tab-settings' class='tab-content'>
+    <div class='dashboard-grid'>
+        <section class='card'>
+            <h2>⚙️ Servo Kalibrierung</h2>
+            <div id='servo-list'></div>
+        </section>
+        <section class='card'>
+            <h2>👁️ Vision & Performance</h2>
+            <div class='setting-item'>
+                <label>Kamera-Stabilisierung</label>
+                <div class='setting-row'>
+                    <span>Aktiv</span>
+                    <input type="checkbox" id="cfg-system-camera_stabilization"
+                        onchange="updateQuickConfig('system.camera_stabilization', this.checked)">
+                </div>
             </div>
-        </div>
-    </div>
-
-    <div id="delete-face-modal" class="modal-base">
-        <div class="modal-card">
-            <h3>Person vergessen?</h3>
-            <p id="delete-face-desc" style="color: var(--text-dim); margin-bottom: 1rem;"></p>
-            <div class="modal-actions">
-                <button class="modal-btn modal-btn-cancel" onclick="closeDeleteFaceModal()">Abbrechen</button>
-                <button class="modal-btn modal-btn-save" style="background: #ef4444;"
-                    onclick="confirmDeleteFace()">Vergessen</button>
+            <div class='setting-item'>
+                <label>Vision Skip Frames (CPU Save)</label>
+                <input type="range" min="1" max="10" value="2" id="cfg-system-vision_processing_skip"
+                    oninput="updateQuickConfig('system.vision_processing_skip', parseInt(this.value))">
             </div>
+            <h2 style="margin-top:2rem">🌐 MQTT Konnektivität</h2>
+            <div class='setting-item'>
+                <label>Broker Adresse</label>
+                <input type="text" id="cfg-mqtt-broker" placeholder="z.B. 192.168.1.10">
+            </div>
+            <button class='btn-save' onclick="saveAllSettings()">Einstellungen Speichern</button>
+        </section>
+    </div>
+</div>
+
+<div id="rename-modal" class="modal-base">
+    <div class="modal-card">
+        <h3>Namen ändern</h3>
+        <p id="modal-desc" style="color: var(--text-dim); margin-bottom: 1rem;"></p>
+        <input type="text" id="rename-input" class="modal-input" placeholder="Name eingeben...">
+        <div class="modal-actions">
+            <button class="modal-btn modal-btn-cancel" onclick="closeRenameModal()">Abbrechen</button>
+            <button class="modal-btn modal-btn-save" onclick="submitRename()">Speichern</button>
         </div>
     </div>
+</div>
 
-    <script>
-        class BuzzerAudio {
-            constructor() {
-                this.ctx = null;
-                this.enabled = false;
-                this.lastState = false;
-            }
-            init() {
-                if (!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-            }
-            beep(freq = 880, dyn = 0.1) {
-                if (!this.enabled || !this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dyn);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + dyn);
-            }
+<div id="delete-marker-modal" class="modal-base">
+    <div class="modal-card">
+        <h3>Marker löschen?</h3>
+        <p id="delete-modal-desc" style="color: var(--text-dim); margin-bottom: 1rem;"></p>
+        <div class="modal-actions">
+            <button class="modal-btn modal-btn-cancel" onclick="closeDeleteMarkerModal()">Abbrechen</button>
+            <button class="modal-btn modal-btn-save" style="background: #ef4444;"
+                onclick="confirmDeleteMarker()">Löschen</button>
+        </div>
+    </div>
+</div>
+
+<div id="delete-face-modal" class="modal-base">
+    <div class="modal-card">
+        <h3>Person vergessen?</h3>
+        <p id="delete-face-desc" style="color: var(--text-dim); margin-bottom: 1rem;"></p>
+        <div class="modal-actions">
+            <button class="modal-btn modal-btn-cancel" onclick="closeDeleteFaceModal()">Abbrechen</button>
+            <button class="modal-btn modal-btn-save" style="background: #ef4444;"
+                onclick="confirmDeleteFace()">Vergessen</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const audio = {
+        ctx: null,
+        enabled: false,
+        lastState: false,
+        init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+        beep(freq = 880, dur = 0.1) {
+            if (!this.enabled) return;
+            this.init();
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + dur);
         }
-        const audio = new BuzzerAudio();
+    };
+    function toggleAudio() {
+        audio.enabled = !audio.enabled;
+        if (audio.enabled) audio.init();
+        const btn = document.getElementById('audio-toggle');
+        btn.innerText = audio.enabled ? '🔊' : '🔇';
+        btn.classList.toggle('active', audio.enabled);
+        toast.show(audio.enabled ? "Audio Feedback EIN" : "Audio Feedback AUS");
+    }
 
-        const toast = {
-            el: null,
-            init() {
-                if (this.el) return;
-                this.el = document.createElement('div');
-                this.el.className = 'toast';
-                document.body.appendChild(this.el);
-            },
-            show(msg, duration = 3000) {
-                this.init();
-                this.el.innerText = msg;
-                this.el.classList.add('active');
-                setTimeout(() => this.el.classList.remove('active'), duration);
-            }
-        };
-
-        function toggleAudio() {
-            audio.init();
-            audio.enabled = !audio.enabled;
-            const btn = document.getElementById('audio-toggle');
-            btn.innerText = audio.enabled ? '🔊' : '🔇';
-            btn.style.background = audio.enabled ? 'var(--accent-blue)' : '';
-            if (audio.enabled) audio.beep(440, 0.05); // Test beep
+    const toast = {
+        el: null,
+        init() {
+            if (this.el) return;
+            this.el = document.createElement('div');
+            this.el.className = 'toast';
+            document.body.appendChild(this.el);
+        },
+        show(msg, duration = 3000) {
+            this.init();
+            this.el.innerText = msg;
+            this.el.classList.add('active');
+            setTimeout(() => this.el.classList.remove('active'), duration);
         }
+    };
 
-        let currentConfig = {};
-        let facesData = {}; // Global store for face data
 
-        function showTab(id, el) {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            if (el) el.classList.add('active');
-            if (id === 'tab-settings') loadConfig();
-            if (id === 'tab-social') updateFaces();
-            if (id === 'tab-map') startMapLoop();
-            else stopMapLoop();
-            if (id === 'tab-markers') loadMarkers();
-            if (id === 'tab-servos') startServoLoop();
-            else stopServoLoop();
+    let currentConfig = {};
+    let facesData = {}; // Global store for face data
+
+    function showTab(id, el) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if (el) el.classList.add('active');
+        if (id === 'tab-settings') loadConfig();
+        if (id === 'tab-social') updateFaces();
+        if (id === 'tab-kinematics') setTimeout(initLegCanvases, 50);
+        if (id === 'tab-map') {
+            startMapLoop();
+            loadMarkers();
+        } else {
+            stopMapLoop();
         }
+    }
 
-        let mapLoop = null;
-        async function startMapLoop() {
-            if (mapLoop) return;
-            mapLoop = setInterval(updateMap, 1000);
-            updateMap();
-        }
-        function stopMapLoop() {
-            if (mapLoop) clearInterval(mapLoop);
-            mapLoop = null;
-        }
+    let mapLoop = null;
+    async function startMapLoop() {
+        if (mapLoop) return;
+        mapLoop = setInterval(updateMap, 1000);
+        updateMap();
+    }
+    function stopMapLoop() {
+        if (mapLoop) clearInterval(mapLoop);
+        mapLoop = null;
+    }
 
-        async function updateMap() {
-            try {
-                const res = await fetch('/api/map');
-                const data = await res.json();
-                if (!data || !data.robot_pos) return;
+    async function updateMap() {
+        try {
+            const res = await fetch('/api/map');
+            const data = await res.json();
+            if (!data || !data.robot_pos) return;
 
-                document.getElementById('robot-pos-txt').innerText = `${Math.round(data.robot_pos[0])}, ${Math.round(data.robot_pos[1])} mm`;
-                document.getElementById('robot-yaw-txt').innerText = `${Math.round(data.robot_yaw * 180 / Math.PI)}°`;
+            document.getElementById('robot-pos-txt').innerText = `${Math.round(data.robot_pos[0])}, ${Math.round(data.robot_pos[1])} mm`;
+            document.getElementById('robot-yaw-txt').innerText = `${Math.round(data.robot_yaw * 180 / Math.PI)}°`;
 
-                renderMap(data);
-            } catch (err) { console.error("Map fetch error:", err); }
-        }
+            renderMap(data);
+        } catch (err) { console.error("Map fetch error:", err); }
+    }
 
-        async function loadMarkers() {
-            try {
-                const res = await fetch('/api/markers');
-                const markers = await res.json();
-                const container = document.getElementById('markers-list');
-                container.innerHTML = '';
+    async function loadMarkers() {
+        try {
+            const res = await fetch('/api/markers');
+            const markers = await res.json();
+            const container = document.getElementById('markers-list');
+            container.innerHTML = '';
 
-                for (const [id, data] of Object.entries(markers)) {
-                    const div = document.createElement('div');
-                    div.className = 'marker-item';
-                    div.innerHTML = `
+            for (const [id, data] of Object.entries(markers)) {
+                const div = document.createElement('div');
+                div.className = 'marker-item';
+                div.innerHTML = `
                         <div>
                             <div style="font-weight: 600;">#${id}: ${data.name}</div>
                             <div style="font-size: 0.75rem; color: var(--text-dim);">${data.size} mm</div>
@@ -1176,156 +1417,156 @@
                             <button class="btn-delete" onclick="deleteMarker('${id}')">Löschen</button>
                         </div>
                     `;
-                    container.appendChild(div);
-                }
-            } catch (err) { console.error("Marker load error:", err); }
-        }
-
-        async function saveMarker() {
-            const id = document.getElementById('m-id').value;
-            const size = document.getElementById('m-size').value;
-            const name = document.getElementById('m-name').value;
-            if (!id || !size) return alert("ID und Größe werden benötigt!");
-
-            const res = await fetch('/api/markers', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, size, name })
-            });
-            if (res.ok) {
-                loadMarkers();
-                document.getElementById('m-id').value = '';
-                document.getElementById('m-size').value = '';
-                document.getElementById('m-name').value = '';
+                container.appendChild(div);
             }
+        } catch (err) { console.error("Marker load error:", err); }
+    }
+
+    async function saveMarker() {
+        const id = document.getElementById('m-id').value;
+        const size = document.getElementById('m-size').value;
+        const name = document.getElementById('m-name').value;
+        if (!id || !size) return alert("ID und Größe werden benötigt!");
+
+        const res = await fetch('/api/markers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, size, name })
+        });
+        if (res.ok) {
+            loadMarkers();
+            document.getElementById('m-id').value = '';
+            document.getElementById('m-size').value = '';
+            document.getElementById('m-name').value = '';
+        }
+    }
+
+    let currentDeleteId = null;
+    function closeDeleteMarkerModal() {
+        document.getElementById('delete-marker-modal').classList.remove('active');
+        currentDeleteId = null;
+    }
+
+    async function deleteMarker(id) {
+        currentDeleteId = id;
+        document.getElementById('delete-modal-desc').innerText = `Möchtest du Marker #${id} wirklich unwiderruflich löschen?`;
+        document.getElementById('delete-marker-modal').classList.add('active');
+    }
+
+    async function confirmDeleteMarker() {
+        if (!currentDeleteId) return;
+        const res = await fetch(`/api/markers/${currentDeleteId}`, { method: 'DELETE' });
+        if (res.ok) {
+            loadMarkers();
+            closeDeleteMarkerModal();
+        } else {
+            alert("Fehler beim Löschen.");
+        }
+    }
+
+    function editMarker(id, size, name) {
+        document.getElementById('m-id').value = id;
+        document.getElementById('m-size').value = size;
+        document.getElementById('m-name').value = name;
+        // Focus on size for quick update
+        document.getElementById('m-size').focus();
+    }
+
+    function renderMap(data) {
+        const canvas = document.getElementById('map-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Handle DPI and Resizing without feedback loops
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+
+        if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+            canvas.width = Math.floor(w * dpr);
+            canvas.height = Math.floor(h * dpr);
+            ctx.scale(dpr, dpr);
         }
 
-        let currentDeleteId = null;
-        function closeDeleteMarkerModal() {
-            document.getElementById('delete-marker-modal').classList.remove('active');
-            currentDeleteId = null;
+        ctx.clearRect(0, 0, w, h);
+
+        // Centering and Scaling
+        // Origin is (0,0) in mm, we want to center the robot
+        const scale = 0.5; // 1mm = 0.5px
+        const centerX = w / 2;
+        const centerY = h / 2;
+
+        ctx.save();
+        ctx.translate(centerX - data.robot_pos[0] * scale, centerY - data.robot_pos[1] * scale);
+
+        // 1. Draw Grid (Obstacles)
+        ctx.fillStyle = "#ef4444";
+        for (const key in data.grid) {
+            const [cx, cy] = key.split(',').map(Number);
+            // Grid is in cm (10mm)
+            ctx.fillRect(cx * 10 * scale, cy * 10 * scale, 10 * scale, 10 * scale);
         }
 
-        async function deleteMarker(id) {
-            currentDeleteId = id;
-            document.getElementById('delete-modal-desc').innerText = `Möchtest du Marker #${id} wirklich unwiderruflich löschen?`;
-            document.getElementById('delete-marker-modal').classList.add('active');
-        }
-
-        async function confirmDeleteMarker() {
-            if (!currentDeleteId) return;
-            const res = await fetch(`/api/markers/${currentDeleteId}`, { method: 'DELETE' });
-            if (res.ok) {
-                loadMarkers();
-                closeDeleteMarkerModal();
-            } else {
-                alert("Fehler beim Löschen.");
-            }
-        }
-
-        function editMarker(id, size, name) {
-            document.getElementById('m-id').value = id;
-            document.getElementById('m-size').value = size;
-            document.getElementById('m-name').value = name;
-            // Focus on size for quick update
-            document.getElementById('m-size').focus();
-        }
-
-        function renderMap(data) {
-            const canvas = document.getElementById('map-canvas');
-            const ctx = canvas.getContext('2d');
-
-            // Handle DPI and Resizing without feedback loops
-            const dpr = window.devicePixelRatio || 1;
-            const w = canvas.clientWidth;
-            const h = canvas.clientHeight;
-
-            if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-                canvas.width = Math.floor(w * dpr);
-                canvas.height = Math.floor(h * dpr);
-                ctx.scale(dpr, dpr);
-            }
-
-            ctx.clearRect(0, 0, w, h);
-
-            // Centering and Scaling
-            // Origin is (0,0) in mm, we want to center the robot
-            const scale = 0.5; // 1mm = 0.5px
-            const centerX = w / 2;
-            const centerY = h / 2;
-
-            ctx.save();
-            ctx.translate(centerX - data.robot_pos[0] * scale, centerY - data.robot_pos[1] * scale);
-
-            // 1. Draw Grid (Obstacles)
-            ctx.fillStyle = "#ef4444";
-            for (const key in data.grid) {
-                const [cx, cy] = key.split(',').map(Number);
-                // Grid is in cm (10mm)
-                ctx.fillRect(cx * 10 * scale, cy * 10 * scale, 10 * scale, 10 * scale);
-            }
-
-            // 2. Draw Landmarks
+        // 2. Draw Landmarks
+        ctx.fillStyle = "#fbbf24";
+        for (const id in data.landmarks) {
+            const [lx, ly] = data.landmarks[id];
+            ctx.beginPath();
+            ctx.rect(lx * scale - 5, ly * scale - 5, 10, 10);
+            ctx.fill();
+            ctx.fillStyle = "white";
+            ctx.font = "8px Inter";
+            ctx.fillText(`ID ${id}`, lx * scale + 8, ly * scale + 3);
             ctx.fillStyle = "#fbbf24";
-            for (const id in data.landmarks) {
-                const [lx, ly] = data.landmarks[id];
-                ctx.beginPath();
-                ctx.rect(lx * scale - 5, ly * scale - 5, 10, 10);
-                ctx.fill();
-                ctx.fillStyle = "white";
-                ctx.font = "8px Inter";
-                ctx.fillText(`ID ${id}`, lx * scale + 8, ly * scale + 3);
-                ctx.fillStyle = "#fbbf24";
-            }
-
-            // 3. Draw Robot
-            ctx.restore();
-            ctx.save();
-            ctx.translate(centerX, centerY);
-            ctx.rotate(data.robot_yaw);
-
-            // Body
-            ctx.fillStyle = "#3b82f6";
-            ctx.beginPath();
-            ctx.moveTo(15, 0);
-            ctx.lineTo(-10, -10);
-            ctx.lineTo(-10, 10);
-            ctx.closePath();
-            ctx.fill();
-
-            // Direction Glow
-            const grad = ctx.createLinearGradient(0, 0, 40, 0);
-            grad.addColorStop(0, "rgba(59, 130, 246, 0.4)");
-            grad.addColorStop(1, "rgba(59, 130, 246, 0)");
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.moveTo(15, 0);
-            ctx.lineTo(50, -25);
-            ctx.lineTo(50, 25);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.restore();
         }
 
-        async function loadConfig() {
-            try {
-                const res = await fetch('/api/config');
-                currentConfig = await res.json();
-                if (currentConfig.system) {
-                    document.getElementById('cfg-system-camera_stabilization').checked = currentConfig.system.camera_stabilization || false;
-                    document.getElementById('cfg-system-vision_processing_skip').value = currentConfig.system.vision_processing_skip || 2;
-                    const overlayToggle = document.getElementById('cfg-system-show_vision_debug-main');
-                    if (overlayToggle) {
-                        overlayToggle.checked = currentConfig.system.show_vision_debug !== false;
-                    }
-                }
-                if (currentConfig.mqtt) {
-                    document.getElementById('cfg-mqtt-broker').value = currentConfig.mqtt.broker || "";
-                }
-                if (!currentConfig.servos) return;
+        // 3. Draw Robot
+        ctx.restore();
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(data.robot_yaw);
 
-                let servoHtml = `
+        // Body
+        ctx.fillStyle = "#3b82f6";
+        ctx.beginPath();
+        ctx.moveTo(15, 0);
+        ctx.lineTo(-10, -10);
+        ctx.lineTo(-10, 10);
+        ctx.closePath();
+        ctx.fill();
+
+        // Direction Glow
+        const grad = ctx.createLinearGradient(0, 0, 40, 0);
+        grad.addColorStop(0, "rgba(59, 130, 246, 0.4)");
+        grad.addColorStop(1, "rgba(59, 130, 246, 0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(15, 0);
+        ctx.lineTo(50, -25);
+        ctx.lineTo(50, 25);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    async function loadConfig() {
+        try {
+            const res = await fetch('/api/config');
+            currentConfig = await res.json();
+            if (currentConfig.system) {
+                document.getElementById('cfg-system-camera_stabilization').checked = currentConfig.system.camera_stabilization || false;
+                document.getElementById('cfg-system-vision_processing_skip').value = currentConfig.system.vision_processing_skip || 2;
+                const overlayToggle = document.getElementById('cfg-system-show_vision_debug-main');
+                if (overlayToggle) {
+                    overlayToggle.checked = currentConfig.system.show_vision_debug !== false;
+                }
+            }
+            if (currentConfig.mqtt) {
+                document.getElementById('cfg-mqtt-broker').value = currentConfig.mqtt.broker || "";
+            }
+            if (!currentConfig.servos) return;
+
+            let servoHtml = `
                     <table class="calibration-table" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                         <thead>
                             <tr style="text-align: left; border-bottom: 2px solid var(--glass-border); color: var(--accent);">
@@ -1339,25 +1580,25 @@
                         <tbody>
                 `;
 
-                const legs = [
-                    { id: 'leg_fl', name: 'FL' },
-                    { id: 'leg_fr', name: 'FR' },
-                    { id: 'leg_rl', name: 'RL' },
-                    { id: 'leg_rr', name: 'RR' }
-                ];
-                const joints = [
-                    { id: 'joint_1', name: 'Gelenk 1 (Schulter)' },
-                    { id: 'joint_2', name: 'Gelenk 2 (Oben)' },
-                    { id: 'joint_3', name: 'Gelenk 3 (Knie)' }
-                ];
+            const legs = [
+                { id: 'leg_fl', name: 'FL' },
+                { id: 'leg_fr', name: 'FR' },
+                { id: 'leg_rl', name: 'RL' },
+                { id: 'leg_rr', name: 'RR' }
+            ];
+            const joints = [
+                { id: 'joint_1', name: 'Gelenk 1 (Schulter)' },
+                { id: 'joint_2', name: 'Gelenk 2 (Oben)' },
+                { id: 'joint_3', name: 'Gelenk 3 (Knie)' }
+            ];
 
-                legs.forEach(leg => {
-                    if (currentConfig.servos[leg.id]) {
-                        joints.forEach((joint, jIdx) => {
-                            const cfg = currentConfig.servos[leg.id][joint.id];
-                            if (cfg) {
-                                const rowStyle = (jIdx === 2) ? "border-bottom: 1px solid var(--glass-border);" : "";
-                                servoHtml += `
+            legs.forEach(leg => {
+                if (currentConfig.servos[leg.id]) {
+                    joints.forEach((joint, jIdx) => {
+                        const cfg = currentConfig.servos[leg.id][joint.id];
+                        if (cfg) {
+                            const rowStyle = (jIdx === 2) ? "border-bottom: 1px solid var(--glass-border);" : "";
+                            servoHtml += `
                                     <tr style="${rowStyle}">
                                         <td style="padding: 8px 5px; font-size: 0.85rem; font-weight: 600;">
                                             <span style="color: var(--text-dim)">${leg.name}</span> ${joint.name}
@@ -1380,15 +1621,15 @@
                                         </td>
                                     </tr>
                                 `;
-                            }
-                        });
-                    }
-                });
+                        }
+                    });
+                }
+            });
 
-                // Camera Tilt
-                if (currentConfig.servos.camera && currentConfig.servos.camera.tilt) {
-                    const cfg = currentConfig.servos.camera.tilt;
-                    servoHtml += `
+            // Camera Tilt
+            if (currentConfig.servos.camera && currentConfig.servos.camera.tilt) {
+                const cfg = currentConfig.servos.camera.tilt;
+                servoHtml += `
                         <tr style="border-top: 2px solid var(--glass-border);">
                             <td style="padding: 8px 5px; font-size: 0.85rem; font-weight: 600;">Kamera Tilt</td>
                             <td style="padding: 5px;"><input type="number" class="mini-input" value="${cfg.limit_neg}" onchange="updateServoParam('camera', 'tilt', 'limit_neg', parseInt(this.value))"></td>
@@ -1397,103 +1638,235 @@
                             <td style="padding: 5px; text-align: center;"><input type="checkbox" ${cfg.inverted ? 'checked' : ''} onchange="updateServoParam('camera', 'tilt', 'inverted', this.checked)"></td>
                         </tr>
                     `;
-                }
+            }
 
-                servoHtml += '</tbody></table>';
-                servoHtml += '<button class="btn-save" style="width: 100%; margin-top: 20px;" onclick="saveServoConfig()">Konfiguration Speichern</button>';
+            servoHtml += '</tbody></table>';
+            servoHtml += '<button class="btn-save" style="width: 100%; margin-top: 20px;" onclick="saveServoConfig()">Konfiguration Speichern</button>';
 
-                document.getElementById('servo-list').innerHTML = servoHtml;
-            } catch (err) { console.error('Config load error:', err); }
-        }
+            document.getElementById('servo-list').innerHTML = servoHtml;
+        } catch (err) { console.error('Config load error:', err); }
+    }
 
-        async function updateServoParam(leg, joint, param, value) {
-            if (!currentConfig.servos[leg]) currentConfig.servos[leg] = {};
-            if (!currentConfig.servos[leg][joint]) currentConfig.servos[leg][joint] = {};
-            currentConfig.servos[leg][joint][param] = value;
-        }
+    async function updateServoParam(leg, joint, param, value) {
+        if (!currentConfig.servos[leg]) currentConfig.servos[leg] = {};
+        if (!currentConfig.servos[leg][joint]) currentConfig.servos[leg][joint] = {};
+        currentConfig.servos[leg][joint][param] = value;
+    }
 
-        async function saveServoConfig() {
-            try {
-                const res = await fetch('/api/config/servos/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(currentConfig.servos)
-                });
-                if (res.ok) {
-                    toast.show("Servo-Konfiguration gespeichert!");
-                } else {
-                    alert("Speichern fehlgeschlagen.");
-                }
-            } catch (err) { alert("Netzwerkfehler beim Speichern."); }
-        }
-        async function updateQuickConfig(key, value) {
-            const data = {};
-            data[key] = value;
-            await fetch('/api/config/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        }
-        async function saveAllSettings() {
-            const data = { "mqtt.broker": document.getElementById('cfg-mqtt-broker').value };
-            await fetch('/api/config/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-            alert("Einstellungen gespeichert!");
-        }
-        function sendCommand(cmd) { fetch('/api/command/' + cmd, { method: 'POST' }); }
-        function stopCommand() { fetch('/api/command/stop', { method: 'POST' }); }
-        function changeGait(gait) { fetch('/api/gait/' + gait, { method: 'POST' }); }
-        function updateSpeed(val) {
-            document.getElementById('speed-val').innerText = val + '%';
-            // Scale 0-100 to 0.0-1.0 Hz
-            const speed_hz = parseFloat(val) / 100.0;
-            fetch('/api/speed/' + speed_hz, { method: 'POST' });
-        }
-        function changePose(pose) { fetch('/api/pose/' + pose, { method: 'POST' }); }
-        function changeMode(mode) { fetch('/api/mode/' + mode, { method: 'POST' }); }
-        function changeHeight(val) {
-            document.getElementById('height-val').innerText = val + 'mm';
-            fetch('/api/height/' + val, { method: 'POST' });
-        }
-        function simulateEnergy(val) {
-            fetch('/api/mood/energy/' + val, { method: 'POST' })
-                .then(() => updateStatus());
-        }
-        function setAutoEnergy() {
-            fetch('/api/mood/energy/auto', { method: 'POST' })
-                .then(() => updateStatus());
-        }
-        function updateBodyPose(key, val) {
-            const data = {};
-            data[key] = parseFloat(val);
-            fetch('/api/body/pose', {
+    async function saveServoConfig() {
+        try {
+            const res = await fetch('/api/config/servos/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                body: JSON.stringify(currentConfig.servos)
             });
+            if (res.ok) {
+                toast.show("Servo-Konfiguration gespeichert!");
+            } else {
+                alert("Speichern fehlgeschlagen.");
+            }
+        } catch (err) { alert("Netzwerkfehler beim Speichern."); }
+    }
+    async function updateQuickConfig(key, value) {
+        const data = {};
+        data[key] = value;
+        await fetch('/api/config/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    }
+
+    // --- Posture & Mode Control ---
+    async function updateControlMode(mode) {
+        const res = await fetch(`/api/mode/${mode}`, { method: 'POST' });
+        if (res.ok) {
+            syncPostureLock(mode);
+            toast.show(`Modus: ${mode === 'autonomous' ? 'Autonom' : 'Manuell'}`);
         }
-        async function sendServoTest(motion) {
-            console.log("Requesting servo test:", motion);
-            const res = await fetch('/api/servo/test/' + motion, { method: 'POST' });
-            if (!res.ok) alert("Fehler beim Starten der Test-Bewegung.");
+    }
+
+    function syncPostureLock(mode) {
+        const container = document.getElementById('posture-slider-container');
+        const select = document.getElementById('control-mode-select');
+        if (container) {
+            container.classList.toggle('disabled', mode === 'autonomous');
+        }
+        if (select) select.value = mode;
+    }
+
+    function changeHeight(val) {
+        const snapRange = 3;
+        const target = 105;
+        let finalVal = Number(val);
+
+        if (Math.abs(finalVal - target) <= snapRange) {
+            finalVal = target;
+            document.getElementById('height-slider').value = finalVal;
         }
 
-        async function updateStatus() {
-            try {
-                const res = await fetch('/api/status');
-                const data = await res.json();
+        document.getElementById('height-val').innerText = finalVal.toFixed(2) + 'mm';
+        fetch(`/api/height/${finalVal}`, { method: 'POST' });
+    }
 
-                // 1. Sync Dropdowns (Mode, Pose, Gait)
-                if (data.mode) {
-                    const sel = document.getElementById('mode-select');
-                    if (document.activeElement !== sel) sel.value = data.mode;
-                }
-                if (data.pose) {
-                    const sel = document.getElementById('pose-select');
-                    if (document.activeElement !== sel) sel.value = data.pose;
-                }
-                if (data.gait) {
-                    const label = document.getElementById('current-gait-label');
-                    if (label) label.innerText = data.gait.charAt(0).toUpperCase() + data.gait.slice(1);
-                }
+    const postureTargets = {};
+    async function updateBodyPose(key, val) {
+        const snapRange = 2;
+        let finalVal = parseFloat(val);
 
-                // 2. Mood
+        if (Math.abs(finalVal) <= snapRange) {
+            finalVal = 0;
+            document.getElementById(`posture-${key}`).value = 0;
+        }
+
+        const unit = (key === 'x' || key === 'y' || key === 'z') ? 'mm' : '°';
+        document.getElementById(`val-${key}`).innerText = finalVal.toFixed(2) + unit;
+
+        postureTargets[key] = finalVal;
+        // Throttled or direct? Direct for now as it's a few sliders.
+        await fetch('/api/body/pose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(postureTargets)
+        });
+    }
+    async function saveAllSettings() {
+        const data = { "mqtt.broker": document.getElementById('cfg-mqtt-broker').value };
+        await fetch('/api/config/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        alert("Einstellungen gespeichert!");
+    }
+    const limbs = { l1: 25, l2: 55, l3: 60 }; // From ik.py
+
+    function renderLeg2D(canvasId, angles, isRightSide) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const scale = 0.8; // Adjusted for better visibility
+        const centerX = isRightSide ? w * 0.35 : w * 0.65;
+        const centerY = h * 0.35; // Moved down slightly
+
+        // Angles from mechanical mapping:
+        // J2: 90 is Horizontal, 180 is Vertical DOWN
+        // J3: internal angle at knee. 180 is straight, 90 is right angle.
+        const j2 = angles.joint_2 || 90;
+        const j3 = angles.joint_3 || 90;
+
+        const j2_rad = (j2 - 90) * Math.PI / 180;
+        const j3_abs_rad = j2_rad + (180 - j3) * Math.PI / 180;
+
+        // Calculation of points
+        const pHip = { x: centerX, y: centerY };
+        const pKnee = {
+            x: pHip.x + Math.sin(j2_rad) * limbs.l2 * scale * (isRightSide ? 1 : -1),
+            y: pHip.y + Math.cos(j2_rad) * limbs.l2 * scale
+        };
+        const pFoot = {
+            x: pKnee.x + Math.sin(j3_abs_rad) * limbs.l3 * scale * (isRightSide ? 1 : -1),
+            y: pKnee.y + Math.cos(j3_abs_rad) * limbs.l3 * scale
+        };
+
+        // Draw Stylized Leg
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        // Femur (Upper Leg)
+        ctx.beginPath();
+        ctx.strokeStyle = 'var(--accent)';
+        ctx.lineWidth = 8;
+        ctx.moveTo(pHip.x, pHip.y);
+        ctx.lineTo(pKnee.x, pKnee.y);
+        ctx.stroke();
+
+        // Tibia (Lower Leg)
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 6;
+        ctx.moveTo(pKnee.x, pKnee.y);
+        ctx.lineTo(pFoot.x, pFoot.y);
+        ctx.stroke();
+
+        // Joint Dots
+        ctx.fillStyle = '#fff';
+        [pHip, pKnee, pFoot].forEach((p, i) => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, i === 2 ? 3 : 5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // Ground Line (Visual reference at approx bottom)
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, h * 0.9);
+        ctx.lineTo(w, h * 0.9);
+        ctx.stroke();
+    }
+
+    function updateMoodUI(mood) {
+        if (!mood) return;
+        ['energy', 'excitement', 'comfort'].forEach(m => {
+            const bar = document.getElementById(`mood-${m}-bar`);
+            const pct = document.getElementById(`mood-${m}-pct`);
+            const val = mood[m] || 0;
+            if (bar) bar.style.width = (val * 100) + '%';
+            if (pct) pct.innerText = Math.round(val * 100) + '%';
+        });
+    }
+
+    function updateLEDs(leds) {
+        if (!leds || !leds.pixels) return;
+        const ring = document.querySelector('.led-ring');
+        ring.classList.remove('led-spin', 'led-blink', 'led-breathe', 'led-scanner');
+        if (leds.pattern && leds.pattern !== 'off' && leds.pattern !== 'manual') {
+            ring.classList.add(`led-${leds.pattern}`);
+        }
+        leds.pixels.forEach((color, i) => {
+            const dot = document.getElementById(`led-${i}`);
+            if (!dot) return;
+            const [r, g, b] = color;
+            const isActive = (r > 0 || g > 0 || b > 0);
+            dot.classList.toggle('active', isActive);
+            if (isActive) {
+                const colorStr = `rgb(${r}, ${g}, ${b})`;
+                dot.style.backgroundColor = colorStr;
+                dot.style.boxShadow = `0 0 10px ${colorStr}`;
+            } else {
+                dot.style.backgroundColor = '#333';
+                dot.style.boxShadow = 'none';
+            }
+        });
+    }
+
+    // Initialize Status Loop
+    async function updateStatus() {
+        console.log("STATUS REBORN v2 (2dp fix)...");
+        try {
+            const res = await fetch('/api/status');
+            const data = await res.json();
+
+            // 1. Global Header Telemetry (Permanent)
+            const headerBatt = document.getElementById('header-battery');
+            if (data.battery && headerBatt) {
+                headerBatt.innerText = data.battery.voltage.toFixed(1) + ' V';
+                headerBatt.style.color = data.battery.percentage < 20 ? '#ef4444' : 'var(--accent)';
+            }
+            const headerPose = document.getElementById('header-pose');
+            if (headerPose) headerPose.innerText = (data.pose || 'Normal').charAt(0).toUpperCase() + (data.pose || 'Normal').slice(1);
+
+            const headerGait = document.getElementById('header-gait');
+            if (headerGait) headerGait.innerText = (data.gait || 'None').charAt(0).toUpperCase() + (data.gait || 'None').slice(1);
+
+            const headerMode = document.getElementById('header-mode');
+            if (headerMode) {
+                const modeVal = data.mode || 'Auto';
+                headerMode.innerText = modeVal.charAt(0).toUpperCase() + modeVal.slice(1);
+                syncPostureLock(modeVal);
+            }
+
+            // 2. Sync Active Tab Elements
+            const activeTab = document.querySelector('.tab-content.active').id;
+
+            if (activeTab === 'tab-status') {
                 if (data.mood) {
                     for (const [key, val] of Object.entries(data.mood)) {
                         const bar = document.getElementById(`mood-${key}-bar`);
@@ -1502,88 +1875,107 @@
                         if (pct) pct.innerText = Math.round(val * 100) + '%';
                     }
                 }
+                const buz = document.getElementById('buzzer-val');
+                if (buz) {
+                    buz.innerText = data.buzzer && data.buzzer.active ? 'ON' : 'OFF';
+                    buz.classList.toggle('active', data.buzzer && data.buzzer.active);
+                }
+            }
 
-                // Servo Test Suite Visibility
-                const testSuite = document.getElementById('servo-test-suite');
-                if (testSuite) {
-                    testSuite.style.display = (data.pose === 'calibrate') ? 'block' : 'none';
+            if (activeTab === 'tab-kinematics') {
+                const poseSel = document.getElementById('pose-select');
+                if (poseSel && document.activeElement !== poseSel) poseSel.value = data.pose || 'normal';
+
+                const heightSlider = document.getElementById('height-slider');
+                const heightVal = document.getElementById('height-val');
+                if (heightSlider && document.activeElement !== heightSlider) {
+                    const h = data.height || 105;
+                    heightSlider.value = h;
+                    if (heightVal) heightVal.innerText = h.toFixed(2) + 'mm';
                 }
 
-                // 2. Battery
-                if (data.battery) {
-                    const batt = document.getElementById('battery-val');
-                    batt.innerText = data.battery.voltage.toFixed(1) + ' V (' + data.battery.percentage + '%)';
-                    batt.style.color = data.battery.percentage < 20 ? '#ef4444' : '#10b981';
-                }
-
-                // 3. LEDs
-                if (data.led && data.led.pixels) {
-                    const ring = document.querySelector('.led-ring');
-
-                    // Pattern Classes
-                    ring.classList.remove('led-spin', 'led-blink', 'led-breathe', 'led-scanner');
-                    if (data.led.pattern && data.led.pattern !== 'off' && data.led.pattern !== 'manual') {
-                        ring.classList.add(`led-${data.led.pattern}`);
-                    }
-
-                    data.led.pixels.forEach((color, i) => {
-                        const dot = document.getElementById(`led-${i}`);
-                        if (!dot) return;
-
-                        const [r, g, b] = color;
-                        if (r === 0 && g === 0 && b === 0) {
-                            dot.style.backgroundColor = '#333';
-                            dot.style.boxShadow = 'none';
-                            dot.classList.remove('active');
-                        } else {
-                            const colorStr = `rgb(${r}, ${g}, ${b})`;
-                            dot.style.backgroundColor = colorStr;
-                            dot.style.boxShadow = `0 0 10px ${colorStr}`;
-                            dot.classList.add('active');
+                // Sync other posture sliders if not active
+                if (data.body_pose) {
+                    for (const [key, val] of Object.entries(data.body_pose)) {
+                        const sld = document.getElementById(`posture-${key}`);
+                        const dsp = document.getElementById(`val-${key}`);
+                        if (sld && document.activeElement !== sld) {
+                            sld.value = val;
+                            if (dsp) dsp.innerText = Number(val).toFixed(2) + ((key === 'x' || key === 'y' || key === 'z') ? 'mm' : '°');
+                            postureTargets[key] = val; // Sync local target store
                         }
+                    }
+                }
+
+                const testSuite = document.getElementById('servo-test-suite');
+                if (testSuite) testSuite.style.display = (data.pose === 'calibrate') ? 'block' : 'none';
+
+                // Render 2D Leg Profiles
+                if (data.servos) {
+                    ['fl', 'fr', 'rl', 'rr'].forEach(leg => {
+                        const angles = {
+                            joint_1: data.servos[`${leg}_joint_1`]?.angle,
+                            joint_2: data.servos[`${leg}_joint_2`]?.angle,
+                            joint_3: data.servos[`${leg}_joint_3`]?.angle
+                        };
+                        renderLeg2D(`leg-canvas-${leg}`, angles, leg.includes('r'));
                     });
                 }
+            }
 
-                // 4. Buzzer
-                if (data.buzzer) {
-                    const buz = document.getElementById('buzzer-val');
-                    const isActive = data.buzzer.active;
-
-                    if (isActive) {
-                        buz.innerText = 'ON';
-                        buz.classList.add('active');
-                        if (!audio.lastState) audio.beep(880, 0.1); // Play sound on edge
+            // 3. Global LEDs
+            if (data.led && data.led.pixels) {
+                const ring = document.querySelector('.led-ring');
+                ring.classList.remove('led-spin', 'led-blink', 'led-breathe', 'led-scanner');
+                if (data.led.pattern && data.led.pattern !== 'off' && data.led.pattern !== 'manual') {
+                    ring.classList.add(`led-${data.led.pattern}`);
+                }
+                data.led.pixels.forEach((color, i) => {
+                    const dot = document.getElementById(`led-${i}`);
+                    if (!dot) return;
+                    const [r, g, b] = color;
+                    if (r === 0 && g === 0 && b === 0) {
+                        dot.style.backgroundColor = '#333';
+                        dot.style.boxShadow = 'none';
+                        dot.classList.remove('active');
                     } else {
-                        buz.innerText = 'OFF';
-                        buz.classList.remove('active');
+                        const colorStr = `rgb(${r}, ${g}, ${b})`;
+                        dot.style.backgroundColor = colorStr;
+                        dot.style.boxShadow = `0 0 10px ${colorStr}`;
+                        dot.classList.add('active');
                     }
-                    audio.lastState = isActive;
-                }
-            } catch (err) { console.error('Status sync error:', err); }
-        }
+                });
+            }
 
-        async function updateFaces() {
-            try {
-                const res = await fetch('/api/faces');
-                facesData = await res.json();
-                const list = document.getElementById('faces-list-full');
+            // Audio Feedback on Buzzer Edge
+            if (data.buzzer && data.buzzer.active && !audio.lastState) audio.beep(880, 0.1);
+            audio.lastState = data.buzzer ? data.buzzer.active : false;
 
-                const entries = Object.entries(facesData);
-                if (entries.length === 0) {
-                    list.innerHTML = '<i style="color: var(--text-dim)">Der Roboter hat noch niemanden getroffen.</i>';
-                    return;
-                }
+        } catch (err) { console.error('Status sync error:', err); }
+    }
 
-                let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem;">';
-                entries.sort((a, b) => b[1].exposure - a[1].exposure).forEach(([id, f]) => {
-                    const trust = Math.min(1.0, Math.pow(f.exposure / 3600.0, 3));
-                    const trustPct = Math.round(trust * 100);
-                    const color = trust > 0.8 ? '#10b981' : (trust > 0.3 ? '#06b6d4' : '#f59e0b');
-                    const status = trust > 0.8 ? 'Freund' : (trust > 0.3 ? 'Bekannter' : 'Fremder');
-                    const imgUrl = `/static/faces/${id}.jpg?t=${Date.now()}`;
-                    const displayName = f.name || id;
+    async function updateFaces() {
+        try {
+            const res = await fetch('/api/faces');
+            facesData = await res.json();
+            const list = document.getElementById('faces-list-full');
 
-                    html += `
+            const entries = Object.entries(facesData);
+            if (entries.length === 0) {
+                list.innerHTML = '<i style="color: var(--text-dim)">Der Roboter hat noch niemanden getroffen.</i>';
+                return;
+            }
+
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem;">';
+            entries.sort((a, b) => b[1].exposure - a[1].exposure).forEach(([id, f]) => {
+                const trust = Math.min(1.0, Math.pow(f.exposure / 3600.0, 3));
+                const trustPct = Math.round(trust * 100);
+                const color = trust > 0.8 ? '#10b981' : (trust > 0.3 ? '#06b6d4' : '#f59e0b');
+                const status = trust > 0.8 ? 'Freund' : (trust > 0.3 ? 'Bekannter' : 'Fremder');
+                const imgUrl = `/static/faces/${id}.jpg?t=${Date.now()}`;
+                const displayName = f.name || id;
+
+                html += `
                     <div class="card face-card">
                         <div style="margin-bottom: 1rem; position: relative;">
                             <img src="${imgUrl}" class="face-avatar" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=${id}'">
@@ -1606,243 +1998,30 @@
                             Gesamt-Kontakt: ${Math.round(f.exposure / 60)} Min.
                         </div>
                     </div>`;
-                });
-                html += '</div>';
-                list.innerHTML = html;
-            } catch (err) { console.error('Face sync error:', err); }
-        }
+            });
+            html += '</div>';
+            list.innerHTML = html;
+        } catch (err) { console.error('Face sync error:', err); }
+    }
 
-        let currentRenameId = null;
 
-        function openRenameModal(id) {
-            const f = facesData[id] || {};
-            const oldName = f.name || id;
-            currentRenameId = id;
-            document.getElementById('modal-desc').innerText = `Gib einen neuen Namen für "${oldName}" ein:`;
-            document.getElementById('rename-input').value = oldName;
-            document.getElementById('rename-modal').classList.add('active');
-            document.getElementById('rename-input').focus();
-            document.getElementById('rename-input').select();
-        }
-
-        function closeRenameModal() {
-            document.getElementById('rename-modal').classList.remove('active');
-            currentRenameId = null;
-        }
-
-        async function submitRename() {
-            const newName = document.getElementById('rename-input').value.trim();
-            if (!currentRenameId || !newName) return;
-
-            try {
-                const res = await fetch('/api/faces/rename', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: currentRenameId, name: newName })
-                });
-                if (res.ok) {
-                    updateFaces();
-                    closeRenameModal();
-                } else {
-                    const result = await res.json();
-                    alert("Fehler: " + (result.message || "Unbekannter Fehler"));
-                }
-            } catch (err) {
-                console.error("Rename error:", err);
-                alert("Netzwerkfehler.");
-            }
-        }
-
-        async function renamePerson(id) {
-            openRenameModal(id);
-        }
-        window.renamePerson = renamePerson;
-
-        let currentDeleteFaceId = null;
-        function closeDeleteFaceModal() {
-            document.getElementById('delete-face-modal').classList.remove('active');
-            currentDeleteFaceId = null;
-        }
-        function openDeleteFaceModal(id) {
-            const f = facesData[id] || {};
-            const name = f.name || id;
-            currentDeleteFaceId = id;
-            document.getElementById('delete-face-desc').innerText = `Möchtest du "${name}" wirklich aus dem Gedächtnis des Roboters löschen?`;
-            document.getElementById('delete-face-modal').classList.add('active');
-        }
-        async function confirmDeleteFace() {
-            if (!currentDeleteFaceId) return;
-            try {
-                const res = await fetch(`/api/faces/${currentDeleteFaceId}`, { method: 'DELETE' });
-                if (res.ok) {
-                    updateFaces();
-                    closeDeleteFaceModal();
-                } else {
-                    alert("Fehler beim Löschen.");
-                }
-            } catch (err) { console.error("Delete face error:", err); }
-        }
-
-        // Key listener for modal
-        document.addEventListener('keydown', (e) => {
-            const renameModal = document.getElementById('rename-modal');
-            const deleteModal = document.getElementById('delete-marker-modal');
-            const deleteFaceModal = document.getElementById('delete-face-modal');
-
-            if (renameModal.classList.contains('active')) {
-                if (e.key === 'Enter') submitRename();
-                if (e.key === 'Escape') closeRenameModal();
-            }
-            if (deleteModal.classList.contains('active')) {
-                if (e.key === 'Enter') confirmDeleteMarker();
-                if (e.key === 'Escape') closeDeleteMarkerModal();
-            }
-            if (deleteFaceModal.classList.contains('active')) {
-                if (e.key === 'Enter') confirmDeleteFace();
-                if (e.key === 'Escape') closeDeleteFaceModal();
-            }
+    function initLegCanvases() {
+        document.querySelectorAll('.leg-canvas').forEach(canvas => {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            if (rect.width === 0) return; // Still hidden
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
         });
+    }
 
-        document.addEventListener('click', (e) => {
-            const renameBtn = e.target.closest('.rename-btn');
-            if (renameBtn) {
-                const id = renameBtn.getAttribute('data-id');
-                renamePerson(id);
-                return;
-            }
-            const deleteFaceBtn = e.target.closest('.delete-face-btn');
-            if (deleteFaceBtn) {
-                const id = deleteFaceBtn.getAttribute('data-id');
-                openDeleteFaceModal(id);
-                return;
-            }
-        });
-
-        let servoLoopActive = false;
-        async function updateServos() {
-            if (!servoLoopActive) return;
-            try {
-                const res = await fetch('/api/servos');
-                const data = await res.json();
-                renderServos(data);
-            } catch (err) { console.error('Servo sync error:', err); }
-
-            // Recursive poll: only start next after this one finishes
-            setTimeout(updateServos, 100);
-        }
-
-        async function startServoLoop() {
-            if (servoLoopActive) return;
-            servoLoopActive = true;
-            updateServos();
-        }
-        function stopServoLoop() {
-            servoLoopActive = false;
-        }
-
-        const legConfigs = {
-            'fl': { label: 'Front L' },
-            'fr': { label: 'Front R' },
-            'rl': { label: 'Rear L' },
-            'rr': { label: 'Rear R' }
-        };
-
-        function renderServos(data) {
-            const grid = document.getElementById('servos-viz-grid');
-            if (grid.children.length === 0) {
-                let html = '';
-                for (const [key, cfg] of Object.entries(legConfigs)) {
-                    const baseRot = key.includes('l') ? 180 : 0;
-                    // Grid item content - High Fidelity 3D Isometric
-                    html += `
-                    <div class="servo-card">
-                        <div class="servo-card-header">
-                            <span>${key.toUpperCase()}</span>
-                            <div class="view-switcher">
-                            </div>
-                            <div class="servo-stats-bar">
-                                <span class="stat-item">1: <b id="stat-${key}-joint_1">0°</b></span>
-                                <span class="stat-item">2: <b id="stat-${key}-joint_2">0°</b></span>
-                                <span class="stat-item">3: <b id="stat-${key}-joint_3">0°</b></span>
-                            </div>
-                        </div>
-                                <div class="leg-viz" id="leg-${key}">
-                                    <!-- Use scaleX(-1) for left side to mirror the view -->
-                                    <div class="viz-container" id="viz-${key}" style="transform: ${key.includes('l') ? 'scaleX(-1)' : 'none'};">
-                                        <div class="ground-plane"></div>
-                                        <div class="body-base"></div>
-                                        
-                                        <!-- Joint 1: Shoulder -->
-                                        <div class="joint" id="joint-${key}-joint_1">
-                                            <div class="bone" id="bone-${key}-joint_1" style="width: 30px; height: 10px; background: #94a3b8;"></div>
-                                            <div class="joint-dot"></div>
-                                            
-                                            <!-- Joint 2: Hip (Relative to J1) -->
-                                            <div class="joint" id="joint-${key}-joint_2">
-                                                <div class="bone" id="bone-${key}-joint_2" style="width: 50px; height: 10px;"></div>
-                                                <div class="joint-dot"></div>
-                                                
-                                                <!-- Joint 3: Knee (Relative to J2) -->
-                                                <div class="joint" id="joint-${key}-joint_3">
-                                                    <div class="bone" id="bone-${key}-joint_3" style="width: 60px; height: 10px;"></div>
-                                                    <div class="joint-dot"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                        </div>
-                    </div>
-                `;
-                }
-                grid.innerHTML = html;
-            }
-
-            for (const leg of ['fl', 'fr', 'rl', 'rr']) {
-                const isLeft = leg.includes('l');
-                let angle_sum = 0;
-                let angle_coxa = 0;
-
-                ['joint_1', 'joint_2', 'joint_3'].forEach(part => {
-                    const sData = data[`${leg}_${part}`];
-                    if (sData) {
-                        const joint = document.getElementById(`joint-${leg}-${part}`);
-                        const valSpan = document.getElementById(`stat-${leg}-${part}`);
-
-                        if (joint && valSpan) {
-                            const dAngle = (sData.raw_angle !== undefined) ? sData.raw_angle : sData.angle;
-                            const isL = leg.includes('l');
-
-                            // PURE 2D SIDE PROFILE LOGIC
-                            // J1 is the "shoulder" pivot (completely hidden in CSS)
-                            if (part === 'joint_1') {
-                                joint.style.transform = `rotate(0deg)`;
-                            } else if (part === 'joint_2') {
-                                // 90 is Horizontal, 180 is Vertical DOWN
-                                const j2Rot = dAngle - 90;
-                                joint.style.transform = `translateX(0px) rotate(${j2Rot}deg)`;
-                            } else if (part === 'joint_3') {
-                                // 180 is Straight (0deg relative), 90 is Bent Down (90deg relative)
-                                const j3Rel = 180 - dAngle;
-                                joint.style.transform = `translateX(50px) rotate(${j3Rel}deg)`;
-                            }
-
-                            valSpan.innerText = `${Math.round(dAngle)}°`;
-                        }
-                    }
-                });
-            }
-        }
-
-        async function pollStatus() {
-            try {
-                await updateStatus();
-            } catch (err) { console.error('Status sync error:', err); }
-            setTimeout(pollStatus, 500);
-        }
-        pollStatus();
-        updateFaces();
-    </script>
+    initLegCanvases();
+    setInterval(updateStatus, 500);
+    updateStatus();
+    updateFaces();
+</script>
 </body>
 
 </html>

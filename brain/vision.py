@@ -106,10 +106,10 @@ class FaceAnalyzer:
         """
         Detects and encodes a face within a specific person box
         box: [ymin, xmin, ymax, xmax] (normalized)
-        Returns: (embedding, face_jpg_bytes) or (None, None)
+        Returns: (embedding, face_jpg_bytes, face_box_norm) or (None, None, None)
         """
         if not self.detector or not self.recognizer or frame is None:
-            return None, None
+            return None, None, None
             
         try:
             h, w = frame.shape[:2]
@@ -118,30 +118,44 @@ class FaceAnalyzer:
             
             # Crop person area with some padding
             pad = 20
-            person_crop = frame[max(0, top-pad):min(h, bottom+pad), max(0, left-pad):min(w, right+pad)]
+            top_pad, left_pad = max(0, top-pad), max(0, left-pad)
+            person_crop = frame[top_pad:min(h, bottom+pad), left_pad:min(w, right+pad)]
             if person_crop.size == 0 or person_crop.shape[0] < 10 or person_crop.shape[1] < 10:
-                return None, None
+                return None, None, None
                 
             # Detect face in crop
             self.detector.setInputSize((person_crop.shape[1], person_crop.shape[0]))
             _, faces = self.detector.detect(person_crop)
             
             if faces is not None and len(faces) > 0:
-                # Take the largest face (SFace requires input image to be 3-channel BGR)
+                # Take the largest face
                 face = faces[0]
+                # face[0:2] = x, y (top-left of face relative to person_crop)
+                # face[2:4] = w, h
+                fx_crop, fy_crop, fw_crop, fh_crop = face[0:4]
+                
+                # Convert back to overall frame coordinates
+                fx_total = left_pad + fx_crop
+                fy_total = top_pad + fy_crop
+                
+                # Normalize face box: [ymin, xmin, ymax, xmax]
+                face_box_norm = [
+                    float(fy_total / h),
+                    float(fx_total / w),
+                    float((fy_total + fh_crop) / h),
+                    float((fx_total + fw_crop) / w)
+                ]
+
                 # Align and recognize
                 aligned = self.recognizer.alignCrop(person_crop, face)
                 if aligned is not None and aligned.size > 0:
                     feature = self.recognizer.feature(aligned)
-                    
-                    # Encode a slightly larger crop for the dashboard (not just the aligned face)
-                    # We use the 'aligned' image as it's already normalized and centered
                     _, buffer = cv2.imencode('.jpg', aligned)
-                    return feature.flatten().tolist(), buffer.tobytes()
+                    return feature.flatten().tolist(), buffer.tobytes(), face_box_norm
         except Exception as e:
             logger.debug(f"FaceAnalyzer error: {e}")
             
-        return None, None
+        return None, None, None
 
 class VisionProcess(multiprocessing.Process):
     def __init__(self, result_queue: multiprocessing.Queue, frame_queue: multiprocessing.Queue, config, shared_imu=None, identity_queue=None, shared_flags=None):
@@ -312,55 +326,16 @@ class VisionProcess(multiprocessing.Process):
                     except: pass
 
                 try:
-                    # --- AI STEP 0: AI Throttling ---
                     do_ai = (frame_count % processing_skip == 0)
-                    
                     if do_ai:
-                        # --- AI STEP 0: Red Ball Detection (HSV Filter) ---
-                        # Red has two ranges in HSV (0-10 and 170-180)
+                        # --- Red HSV Mask (Validator Only) ---
+                        # Used by AI block below to confirm color
                         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
                         mask1 = cv2.inRange(hsv, np.array([0, 100, 100]), np.array([10, 255, 255]))
                         mask2 = cv2.inRange(hsv, np.array([160, 100, 100]), np.array([180, 255, 255]))
                         mask = cv2.add(mask1, mask2)
-                    
-                        # Morphological operations to clean up noise
-                        mask = cv2.erode(mask, None, iterations=2)
-                        mask = cv2.dilate(mask, None, iterations=2)
-                        
-                        # Find contours
-                        cnts, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                        if len(cnts) > 0:
-                            c = max(cnts, key=cv2.contourArea)
-                            ((x, y), radius) = cv2.minEnclosingCircle(c)
-                            if radius > 10: # Minimum size
-                                # Normalize coordinates
-                                try:
-                                    # Normalize coordinates relative to stabilized frame if possible
-                                    final_x, final_y = x / w_frame, y / h_frame
-                                    if soft_stab and remap_params:
-                                        final_x, final_y = self.transform_coords(x, y, *remap_params)
-                                        final_x /= w_frame
-                                        final_y /= h_frame
-
-                                    if self.result_queue.full():
-                                        self.result_queue.get_nowait()
-                                    self.result_queue.put_nowait({
-                                        "type": "object",
-                                        "label": "ball",
-                                        "dist": int(2000 / radius) if radius > 0 else 2000,
-                                        "center_x": final_x,
-                                        "center_y": final_y,
-                                        "conf": 0.9,
-                                        "interest": "high"
-                                    })
-                                except Exception: pass
-                                
-                                # Cache for visualization
-                                viz_state["ball"] = (x, y, radius)
-                            else:
-                                viz_state["ball"] = None
-                        else:
-                            viz_state["ball"] = None
+                        mask = cv2.erode(mask, None, iterations=1) # Reduced to preserve smaller objects
+                        mask = cv2.dilate(mask, None, iterations=1)
 
                     # --- AI STEP 0.5: Aruco Landmark Detection ---
                     if do_ai and aruco_detector is not None:
@@ -496,10 +471,83 @@ class VisionProcess(multiprocessing.Process):
                     if do_ai and detector is not None:
                         detections = detector.detect(frame)
                         now = time.time()
-                        viz_objects_new = [] # Fix: Initialize before loop
+                        viz_objects_new = []
+                        
+                        ball_found = False
+                        # Pre-process AI detections for Ball candidates (Tier 1)
+                        # Create a new list to hold processed detections, as we might modify 'detections' later
+                        processed_detections = []
                         for d in detections:
+                            if d["label"] in ["sports ball", "apple", "orange"]:
+                                # Color Filter: Ensure the ball is RED
+                                ymin_b, xmin_b, ymax_b, xmax_b = d["box"]
+                                py1, px1 = int(ymin_b * h_frame), int(xmin_b * w_frame)
+                                py2, px2 = int(ymax_b * h_frame), int(xmax_b * w_frame)
+                                py1, py2 = max(0, py1), min(h_frame, py2)
+                                px1, px2 = max(0, px1), min(w_frame, px2)
+                                
+                                if py2 > py1 and px2 > px1:
+                                    # 1. Broad Density Check
+                                    box_mask = mask[py1:py2, px1:px2]
+                                    red_pixels = cv2.countNonZero(box_mask)
+                                    red_density = red_pixels / box_mask.size if box_mask.size > 0 else 0
+                                    
+                                    # 2. INNER-CENTER Check (To ignore rings like dartboards)
+                                    bh, bw = box_mask.shape
+                                    ch, cw = bh // 2, bw // 2
+                                    ih, iw = int(bh * 0.4), int(bw * 0.4) # Inner height/width
+                                    inner_mask = box_mask[ch-ih//2:ch+ih//2, cw-iw//2:cw+iw//2]
+                                    inner_density = cv2.countNonZero(inner_mask) / inner_mask.size if inner_mask.size > 0 else 0
+
+                                    # Accept if broad density is OK and INNER center is ALSO red
+                                    if red_density > 0.12 and inner_density > 0.4:
+                                        d["label"] = "ball" # Map to internal behavior key
+                                        d["tier"] = "(AI)"
+                                        processed_detections.append(d)
+                                        ball_found = True
+                                    else:
+                                        # Skip non-red ball candidates
+                                        pass
+                                else:
+                                    # If box dimensions are invalid, just skip this detection
+                                    pass
+                            else:
+                                processed_detections.append(d) # Keep non-ball detections
+
+                        # --- TIER 2: Refined Blob Fallback (Discovery) ---
+                        if not ball_found and mask is not None:
+                            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                            sorted_cnts = sorted(contours, key=cv2.contourArea, reverse=True)[:3]
+                            for cnt in sorted_cnts:
+                                x, y, w, h = cv2.boundingRect(cnt)
+                                if w < 18 or h < 18: continue 
+                                
+                                # High-precision validation for blobs
+                                blob_mask = mask[y:y+h, x:x+w]
+                                red_density = cv2.countNonZero(blob_mask) / blob_mask.size if blob_mask.size > 0 else 0
+                                ch, cw = h // 2, w // 2
+                                ih, iw = int(h * 0.4), int(w * 0.4) # Inner height/width
+                                inner_mask = blob_mask[ch-ih//2:ch+ih//2, cw-iw//2:cw+iw//2]
+                                inner_density = cv2.countNonZero(inner_mask) / inner_mask.size if inner_mask.size > 0 else 0
+                                
+                                # Solid check (ID > 0.5) ensures we catch the ball but ignore the dartboard ring
+                                if red_density > 0.25 and inner_density > 0.55:
+                                    processed_detections.append({
+                                        "label": "ball",
+                                        "score": 0.85,
+                                        "box": [y/h_frame, x/w_frame, (y+h)/h_frame, (x+w)/w_frame],
+                                        "tier": "(BLOB)"
+                                    })
+                                    ball_found = True
+                                    break
+                        
+                        # Final loop for all validated detections
+                        for d in processed_detections:
                             label = d["label"]
-                            if label in ["person", "dog", "cat"]:
+                            # Skip original AI labels for ball candidates, as they've been processed
+                            if label in ["sports ball", "apple", "orange"]: continue
+                            
+                            if label in ["person", "dog", "cat", "ball"]:
                                 # Estimate distance 
                                 ymin, xmin, ymax, xmax = d["box"]
                                 height = ymax - ymin
@@ -514,22 +562,14 @@ class VisionProcess(multiprocessing.Process):
                                     dx = center_x - prev_x
                                     dy = center_y - prev_y
                                     dt = now - prev_t
-                                    
-                                    # If dog is moving away (increasing x or moving out of frame side)
-                                    # or if height is decreasing significantly
                                     if dt > 0:
-                                        # Very simple: if moving laterally fast or shrinking
-                                        if abs(dx) > 0.1 or (dy > 0.05): # simplified heuristic
-                                            interest_level = "low"
-                                        else:
-                                            interest_level = "high"
+                                        vel = np.sqrt(dx**2 + dy**2) / dt
+                                        interest_level = "active" if vel > 0.1 else "calm"
                                 
                                 last_positions[label] = (center_x, center_y, now)
 
                                 # --- TILT SERVO LOGIC (Queue-based) ---
-                                # Adjust camera tilt based on distance if it's a priority object
                                 if label in ["person", "dog"] and (time.time() - self.last_tilt_update > 0.5):
-                                    # Corrected Mapping for tracking a taller object from a low robot:
                                     target_tilt = 90
                                     if dist_est < 600: target_tilt = 60
                                     elif dist_est < 1200: target_tilt = 75
@@ -546,21 +586,34 @@ class VisionProcess(multiprocessing.Process):
                                             })
                                             self.last_tilt_update = time.time()
                                         except Exception: pass
-                                         
+                                
+                                # For ball, interest depends on distance/speed
+                                if label == "ball":
+                                    interest_level = "high"
+                                    
                                 # --- FACE RECOGNITION STEP ---
-                                face_vec, face_jpg = None, None
+                                face_vec, face_jpg, face_rect = None, None, None
                                 if label == "person":
                                     try:
-                                        face_vec, face_jpg = face_analyzer.analyze(frame, d["box"])
+                                        face_vec, face_jpg, face_rect = face_analyzer.analyze(frame, d["box"])
                                     except Exception: pass
 
                                 try:
                                     final_cx, final_cy = center_x, center_y
+                                    # If a face was found, use the face box for tighter visualization instead of the person box
+                                    final_box = d["box"]
+                                    if face_rect:
+                                        final_box = face_rect
+                                        # Re-calculate center for tracking
+                                        ymin_f, xmin_f, ymax_f, xmax_f = face_rect
+                                        center_x = (xmin_f + xmax_f) / 2
+                                        center_y = (ymin_f + ymax_f) / 2
+
                                     if soft_stab and remap_params:
                                         # Transform normalized back to pixel, then stabilize, then back to normalized
-                                        px, py = center_x * w, center_y * h
+                                        px, py = center_x * w_frame, center_y * h_frame
                                         sx, sy = self.transform_coords(px, py, *remap_params)
-                                        final_cx, final_cy = sx / w, sy / h
+                                        final_cx, final_cy = sx / w_frame, sy / h_frame
 
                                     if self.result_queue.full():
                                         self.result_queue.get_nowait()
@@ -573,6 +626,7 @@ class VisionProcess(multiprocessing.Process):
                                         "interest": interest_level,
                                         "center_x": final_cx,
                                         "center_y": final_cy,
+                                        "box": final_box, # Added tighter box to result
                                         "timestamp": time.time()
                                     }
                                     if face_vec:
@@ -585,20 +639,31 @@ class VisionProcess(multiprocessing.Process):
                                 
                                 # Cache for visualization
                                 color = (0, 255, 255) # Yellow for generic
-                                if label == "person": color = (255, 0, 0) # Blue
-                                elif label == "dog": color = (0, 165, 255) # Orange
+                                current_label = label.upper()
+                                if label == "ball":
+                                    color = (0, 0, 255) # RED for the red ball
+                                    tier_suffix = d.get("tier", "")
+                                    current_label = f"BALL {tier_suffix}"
+                                elif label == "person": 
+                                    color = (255, 255, 255) # White for stranger
+                                    if self.current_identity:
+                                        color = (0, 255, 0) # Green for recognized
+                                        current_label = self.current_identity.upper()
                                 
+                                # Use the tighter box (Face) if available
+                                viz_box = face_rect if face_rect else d["box"]
+
                                 viz_objects_new.append({
-                                    "label": label.upper(),
+                                    "label": current_label,
                                     "dist": dist_est,
-                                    "box": d["box"],
+                                    "box": viz_box,
                                     "color": color
                                 })
-                                
-                                icon = "👤" if label == "person" else "🐾"
-                                interest_str = f" [Interest: {interest_level}]" if label == "dog" else ""
+                            
+                                icon = "👤" if label == "person" else ("⚽" if label == "ball" else "🐾")
+                                interest_str = f" [Interest: {interest_level}]" if label in ["dog", "ball"] else ""
                                 if frame_count % 50 == 0: # Even less frequent, and at DEBUG level
-                                    logger.debug(f"Target Status: {label.upper()} {icon}{interest_str} (Conf: {d['score']:.2f}, Dist: {dist_est}mm)")
+                                    logger.debug(f"Target Status: {label.upper()} {icon}{interest_str} (Conf: {d['score']:.2f}, Dist: {dist_est if 'dist_est' in locals() else 0}mm)")
                             
                         viz_state["objects"] = viz_objects_new
 
@@ -650,15 +715,6 @@ class VisionProcess(multiprocessing.Process):
                             remap_params = (M_rot, cw, ch, sw, sh)
 
                         if show_debug:
-                            # Draw Ball
-                            if viz_state["ball"]:
-                                bx, by, br = viz_state["ball"]
-                                if remap_params:
-                                    bx, by = self.transform_coords(bx, by, *remap_params)
-                                    br *= remap_params[3] # Scale radius too
-                                cv2.circle(frame, (int(bx), int(by)), int(br), (0, 255, 0), 2)
-                                cv2.putText(frame, "Ball", (int(bx)-20, int(by)-int(br)-10), 
-                                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                             
                             # Draw Gesture
                             if viz_state["gesture"]:
