@@ -61,7 +61,7 @@
 | ~~P4-3~~ | ~~API Dokumentation~~ | developer | **✅ DONE** | OpenAPI 3.0.3 Spec erstellt, alle Endpoints dokumentiert, 13 Tests bestanden |
 | ~~P4-4~~ | ~~Battery Low-Voltage Protection~~ | developer | **✅ DONE** | `is_critical()` Methode, config-basierte Thresholds, Auto-Warnungen, 10 Tests bestanden |
 | ~~P4-5~~ | ~~MockIMU Dynamic Data~~ | developer | **✅ DONE** | `set_movement()`, `set_oscillation()`, `set_jitter()`, `reset()` - Camera Stabilization testbar, 10 Tests bestanden |
-| P4-6 | Queue Timeout Validation | developer | backlog | Main Loop Queue-Blocking Risk eliminieren |
+| ~~P4-6~~ | ~~Queue Timeout Validation~~ | developer | **✅ DONE** | Config-Optionen hinzugefügt, maxsize/max_items_timeout validiert, 9 Tests bestanden |
 | P4-7 | Thread-Safe Config | developer | backlog | Config Hot-Reload thread-safe machen |
 
 ### 🟢 Priorität 5 - CODE QUALITY (LSP Warnings)
