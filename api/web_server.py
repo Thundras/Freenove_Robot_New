@@ -96,6 +96,28 @@ class WebServer:
             # Logic to pass to movement engine will go here
             return jsonify({"status": "ok", "command": cmd})
 
+        @self.app.route("/api/emergency_stop", methods=["POST"])
+        def handle_emergency_stop():
+            logger.critical("EMERGENCY STOP via Web API")
+            if self.intelligence and hasattr(self.intelligence, "fail_safe"):
+                self.intelligence.fail_safe.emergency_stop("web_api")
+            if self.movement:
+                self.movement.set_target_speed(0.0, 0.0)
+                self.movement.set_pose("sit")
+            if self.servo_ctrl:
+                try:
+                    self.servo_ctrl.release_all()
+                except Exception as e:
+                    logger.error(f"Error releasing servos: {e}")
+            return jsonify({"status": "ok", "action": "emergency_stop"})
+
+        @self.app.route("/api/emergency_reset", methods=["POST"])
+        def handle_emergency_reset():
+            logger.info("Emergency Reset via Web API")
+            if self.intelligence and hasattr(self.intelligence, "fail_safe"):
+                self.intelligence.fail_safe.reset_emergency()
+            return jsonify({"status": "ok", "action": "emergency_reset"})
+
         @self.app.route("/api/gait/<gait>", methods=["POST"])
         def handle_gait(gait):
             logger.info(f"Gait change manual requested: {gait}")

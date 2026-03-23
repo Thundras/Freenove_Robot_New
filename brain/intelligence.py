@@ -7,6 +7,7 @@ import threading
 import tempfile
 import numpy as np
 from .bt_core import Selector, Sequence, Parallel
+from utils.fail_safe import FailSafeManager
 from .behaviors import (
     AvoidObstacles,
     SmartExplore,
@@ -286,6 +287,8 @@ class IntelligenceController:
         self.vision_boot_timeout = config.get("system.vision_boot_timeout", 60.0)
         self.vision_timeout = config.get("system.vision_watchdog_timeout", 30.0)
         self.vision_max_restarts = config.get("system.vision_max_restarts", 5)
+
+        self.fail_safe = FailSafeManager(config)
 
         db_path = os.path.join(os.path.dirname(__file__), "face_db.json")
         self.social_memory = SocialMemory(db_path, config)

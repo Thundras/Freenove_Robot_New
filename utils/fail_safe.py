@@ -35,7 +35,21 @@ class FailSafeConfig:
 
 class FailSafeManager:
     def __init__(self, config: Optional[Any] = None):
-        self.config = config or FailSafeConfig()
+        if config is None:
+            self.config = FailSafeConfig()
+        elif isinstance(config, FailSafeConfig):
+            self.config = config
+        else:
+            self.config = FailSafeConfig(
+                imu_timeout=config.get("system.fail_safe_imu_timeout", 2.0),
+                ultrasonic_timeout=config.get(
+                    "system.fail_safe_ultrasonic_timeout", 1.0
+                ),
+                max_consecutive_failures=config.get("system.fail_safe_max_failures", 3),
+                speed_reduction_factor=config.get(
+                    "system.fail_safe_speed_reduction", 0.5
+                ),
+            )
 
         self.sensors: Dict[str, SensorHealth] = {
             "imu": SensorHealth("imu", time.time(), self.config.imu_timeout),
@@ -108,6 +122,19 @@ class FailSafeManager:
             logger.info("All fail-safes cleared, returning to normal operation")
             return True
         return False
+
+    def emergency_stop(self, reason: str = "manual") -> None:
+        logger.critical(f"EMERGENCY STOP triggered: {reason}")
+        self.active_failsafes["emergency"] = True
+        self.set_state(FailSafeState.EMERGENCY_STOP)
+        self.speed_multiplier = 0.0
+
+    def reset_emergency(self) -> None:
+        self.active_failsafes["emergency"] = False
+        self.clear_failsafe("emergency")
+
+    def is_emergency_stopped(self) -> bool:
+        return self.current_state == FailSafeState.EMERGENCY_STOP
 
     def get_speed_multiplier(self) -> float:
         return self.speed_multiplier

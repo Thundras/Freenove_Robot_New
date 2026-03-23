@@ -121,3 +121,43 @@ class TestSensorHealth:
         assert sensor.name == "test"
         assert sensor.is_healthy is True
         assert sensor.consecutive_failures == 0
+
+
+class TestEmergencyStop:
+    def test_emergency_stop_initial_state(self):
+        fs = FailSafeManager()
+        assert fs.is_emergency_stopped() is False
+        assert fs.current_state == FailSafeState.NORMAL
+
+    def test_emergency_stop_trigger(self):
+        fs = FailSafeManager()
+        fs.emergency_stop("test_reason")
+        assert fs.is_emergency_stopped() is True
+        assert fs.current_state == FailSafeState.EMERGENCY_STOP
+        assert fs.speed_multiplier == 0.0
+        assert fs.active_failsafes.get("emergency") is True
+
+    def test_emergency_stop_blocks_movement(self):
+        fs = FailSafeManager()
+        fs.emergency_stop()
+        assert fs.is_safe_for_movement() is False
+
+    def test_emergency_reset(self):
+        fs = FailSafeManager()
+        fs.emergency_stop()
+        fs.reset_emergency()
+        assert fs.is_emergency_stopped() is False
+        assert fs.current_state == FailSafeState.NORMAL
+
+    def test_emergency_stop_preserves_other_failsafes(self):
+        fs = FailSafeManager()
+        fs.trigger_failsafe("imu", FailSafeState.IMU_TIMEOUT)
+        fs.emergency_stop()
+        assert fs.active_failsafes.get("imu") is True
+        assert fs.active_failsafes.get("emergency") is True
+        assert fs.is_emergency_stopped() is True
+
+    def test_emergency_stop_with_custom_reason(self):
+        fs = FailSafeManager()
+        fs.emergency_stop("button_pressed")
+        assert fs.is_emergency_stopped() is True

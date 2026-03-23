@@ -91,7 +91,7 @@
 | ID | Task | Agent | Status | Details |
 |----|------|-------|--------|---------|
 | ~~P8-1~~ | ~~Fail-Safe States~~ | developer | **✅ DONE** | FailSafeManager mit IMU/Ultrasonic Monitoring, Speed-Reduktion bei Ausfall, 19 Tests bestanden |
-| P8-2 | Emergency Stop | developer | backlog | Hardware-Notstopp über GPIO-Taster |
+| ~~P8-2~~ | ~~Emergency Stop~~ | developer | **✅ DONE** | `/api/emergency_stop` + `/api/emergency_reset`, FailSafeManager integration, 25 Tests bestanden |
 | P8-3 | Health Monitoring | developer | backlog | Automatische Selbstdiagnose mit Alerting |
 | P8-4 | Graceful Degradation | developer | backlog | Weiterbetrieb bei Teil-Ausfall |
 
