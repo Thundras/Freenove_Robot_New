@@ -72,7 +72,7 @@
 | P6-2 | Voice Commands | developer | backlog | Sprachsteuerung via Web Speech API |
 | P6-3 | Path Recording | developer | backlog | Bewegungsabläufe aufnehmen und abspielen |
 | P6-4 | Autonomous Navigation | developer | backlog | ArUco-Marker Navigation mit Auto-Ladestation |
-| P6-5 | LED Animationen | developer | backlog | Programmierbare LED-Muster bei Aktionen |
+| ~~P6-5~~ | ~~LED Animationen~~ | developer | **✅ DONE** | Pattern Library, Action Triggers, API Endpoints, 21 Tests bestanden |
 | P6-6 | Sleep/Wake Modes | developer | backlog | Energiesparmodus mit Sensor-Timeout |
 | P6-7 | Gesture Control | developer | backlog | Handgesten für einfache Befehle |
 

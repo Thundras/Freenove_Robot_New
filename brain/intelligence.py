@@ -8,6 +8,7 @@ import tempfile
 import numpy as np
 from .bt_core import Selector, Sequence, Parallel
 from utils.fail_safe import FailSafeManager
+from utils.led_animations import LEDAnimationManager
 from .behaviors import (
     AvoidObstacles,
     SmartExplore,
@@ -289,6 +290,12 @@ class IntelligenceController:
         self.vision_max_restarts = config.get("system.vision_max_restarts", 5)
 
         self.fail_safe = FailSafeManager(config)
+
+        led = sensors.get("led") if sensors else None
+        if led:
+            self.led_animation = LEDAnimationManager(led, config)
+        else:
+            self.led_animation = None
 
         db_path = os.path.join(os.path.dirname(__file__), "face_db.json")
         self.social_memory = SocialMemory(db_path, config)
@@ -684,6 +691,10 @@ class IntelligenceController:
         else:
             # In calibration mode, we just ensure no active gaits are overriding manually
             pass
+
+        # --- LED Animation Update ---
+        if self.led_animation:
+            self.led_animation.update(dt)
 
     def stop(self):
         """Stop the intelligence controller and vision process gracefully."""

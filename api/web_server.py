@@ -125,6 +125,51 @@ class WebServer:
                 return jsonify(health)
             return jsonify({"healthy": True, "issues": [], "state": "unknown"})
 
+        @self.app.route("/api/led/status", methods=["GET"])
+        def get_led_status():
+            if self.intelligence and hasattr(self.intelligence, "led_animation"):
+                status = self.intelligence.led_animation.get_status()
+                return jsonify(status)
+            return jsonify({"error": "LED animation not available"}), 404
+
+        @self.app.route("/api/led/pattern/<pattern>", methods=["POST"])
+        def set_led_pattern(pattern):
+            if self.intelligence and hasattr(self.intelligence, "led_animation"):
+                from utils.led_animations import LEDPattern
+
+                try:
+                    led_pattern = LEDPattern(pattern)
+                    self.intelligence.led_animation.set_pattern(led_pattern)
+                    return jsonify({"status": "ok", "pattern": pattern})
+                except ValueError:
+                    return jsonify({"error": f"Unknown pattern: {pattern}"}), 400
+            return jsonify({"error": "LED animation not available"}), 404
+
+        @self.app.route("/api/led/action/<action>", methods=["POST"])
+        def set_led_action(action):
+            if self.intelligence and hasattr(self.intelligence, "led_animation"):
+                from utils.led_animations import LEDAction
+
+                try:
+                    led_action = LEDAction(action)
+                    self.intelligence.led_animation.set_action(led_action)
+                    return jsonify({"status": "ok", "action": action})
+                except ValueError:
+                    return jsonify({"error": f"Unknown action: {action}"}), 400
+            return jsonify({"error": "LED animation not available"}), 404
+
+        @self.app.route("/api/led/color", methods=["POST"])
+        def set_led_color():
+            data = request.json
+            if not data or "r" not in data or "g" not in data or "b" not in data:
+                return jsonify({"error": "Missing r, g, b values"}), 400
+            if self.intelligence and hasattr(self.intelligence, "led_animation"):
+                self.intelligence.led_animation.set_color(
+                    int(data["r"]), int(data["g"]), int(data["b"])
+                )
+                return jsonify({"status": "ok"})
+            return jsonify({"error": "LED animation not available"}), 404
+
         @self.app.route("/api/gait/<gait>", methods=["POST"])
         def handle_gait(gait):
             logger.info(f"Gait change manual requested: {gait}")
